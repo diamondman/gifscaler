@@ -3,11 +3,12 @@
 #include <stdint.h>
 #include <math.h>
 #include <string.h>
+#include "linkedlist.h"
 
 typedef struct GifExtHeader{
   uint8_t type;
   uint8_t *data;
-}ExtHeader;
+} ExtHeader;
 
 typedef struct GifImageDescriptor{
   uint16_t left;
@@ -23,17 +24,6 @@ typedef struct GifImageDescriptor{
   uint8_t LZW;
   uint8_t image_data;
 } ImageDescriptor;
-
-struct LinkedListItem{
-  int* data;
-  struct LinkedListItem* next;
-};
-
-struct LinkedList{
-  struct LinkedListItem *first;
-  struct LinkedListItem *last;
-  long length;
-};
 
 struct Gif{
   char version[7];
@@ -70,9 +60,6 @@ const uint8_t EXT_COMMENT_MARKER = 0xFE;
 void printGifData(struct Gif g);
 uint8_t* loadFile(char *path, uint32_t* data_copied);
 uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data);
-void addLinkedListItem(struct LinkedList *list, struct LinkedListItem *item);
-struct LinkedListItem* addNewLinkedListItem(struct LinkedList *list);
-void disposeLinkedList(struct LinkedList *list);
 
 int main(int argc, char* argv[]){
   if(argc<2){ printf("Please Specify a gif Image to process.\n"); return 1; }
@@ -199,7 +186,7 @@ int main(int argc, char* argv[]){
     printf("Extra Data found at end of Gif. Expected 0x3B\n");
   }
   
-  //printGifData(g);
+  printGifData(g);
 
   printf("%d Images\n",(int)images->length);
 
@@ -386,34 +373,3 @@ void printGifData(struct Gif g){
   printf("\n");
 }
 
-void addLinkedListItem(struct LinkedList *list, struct LinkedListItem *item){
-  if(list->length==0){
-    //printf("Adding First Item\n");
-    list->first=item; 
-  }else list->last->next=item;
-  list->last=item;
-  list->last->next=NULL;
-  list->length++;
-  //printf("Length: %d\n", list->length);
-}
-
-struct LinkedListItem* addNewLinkedListItem(struct LinkedList *list){
-  struct LinkedListItem *item = malloc(sizeof(struct LinkedListItem));
-  addLinkedListItem(list, item);
-  return item;
-}
-
-void disposeLinkedList(struct LinkedList *list){
-  if(list->length>0){
-    struct LinkedListItem *item = list->first;
-    struct LinkedListItem *nextitem;
-    do{
-      nextitem = item->next;
-      free(item);
-      item=nextitem;
-    }while(item!=0);
-    list->length=0;
-    list->last=NULL;
-    list->first=NULL;
-  }
-}
