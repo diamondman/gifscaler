@@ -5,12 +5,12 @@
 #include <string.h>
 #include "linkedlist.h"
 
-typedef struct GifExtHeader{
+typedef struct GifExtHeader_t{
   uint8_t type;
   uint8_t *data;
-} ExtHeader;
+} GifExtHeader;
 
-typedef struct GifImageDescriptor{
+typedef struct GifImageDescriptor_t{
   uint16_t left;
   uint16_t top;
   uint16_t width;
@@ -20,12 +20,13 @@ typedef struct GifImageDescriptor{
   uint8_t sort;
   uint16_t lct_size;
   uint32_t *color_table;
-  struct LinkedList *extensions;
+  LinkedList *extensions;
   uint8_t LZW;
-  uint8_t image_data;
-} ImageDescriptor;
+  int image_data_size;
+  uint8_t *image_data;
+} GifImageDescriptor;
 
-struct Gif{
+typedef struct Gif_t{
   char version[7];
   //Logical Screen Descriptor
   uint16_t width;
@@ -43,10 +44,9 @@ struct Gif{
   uint32_t ext_count;
   //Image Descriptor
   uint32_t image_count;
-  //struct GifImageDescriptor **image_descriptors;
-  struct LinkedList image_descriptor_linked_list;
-  struct LinkedList *trailing_extensions;
-};//struct GifImageDescriptor
+  LinkedList image_descriptor_linked_list;
+  LinkedList *trailing_extensions;
+} Gif;
 
 const uint8_t EXT_MARKER = 0x21;
 const uint8_t IMG_MARKER = 0x2C;
@@ -57,26 +57,26 @@ const uint8_t EXT_TEXT_MARKER = 0x01;
 const uint8_t EXT_APP_MARKER = 0xFF;
 const uint8_t EXT_COMMENT_MARKER = 0xFE;
 
-void printGifData(struct Gif g);
+void printGifData(Gif g);
 uint8_t* loadFile(char *path, uint32_t* data_copied);
 uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data);
 
 int main(int argc, char* argv[]){
   if(argc<2){ printf("Please Specify a gif Image to process.\n"); return 1; }
 
-  struct Gif g;
-  memset(&g, 0, sizeof(struct Gif));
+  Gif g;
+  memset(&g, 0, sizeof(Gif));
   uint32_t data_copied = 0;
   uint8_t *source_data = loadFile(argv[1], &data_copied);;
   uint8_t *p = source_data;
   if(data_copied<0) return data_copied;
   memcpy(g.version, source_data, 6);
 
-  struct LinkedList *images = &g.image_descriptor_linked_list;
+  LinkedList *images = &g.image_descriptor_linked_list;
   images->length=0;
 
-  struct LinkedList *extensions = (struct LinkedList *)malloc(sizeof(struct LinkedList));
-  memset(extensions, 0, sizeof(struct LinkedList));
+  LinkedList *extensions = (LinkedList *)malloc(sizeof(LinkedList));
+  memset(extensions, 0, sizeof(LinkedList));
   
   //Extract Main Gif Header
   p+=6;
@@ -109,10 +109,10 @@ int main(int argc, char* argv[]){
       g.ext_count++;
       p+=1;
       int type=*p;
-      struct LinkedListItem *item = addNewLinkedListItem(extensions);
-      item->data = malloc(sizeof(struct GifExtHeader));
-      memset(item->data, 0, sizeof(struct GifExtHeader));
-      struct GifExtHeader *exth = (struct GifExtHeader *)item->data;
+      LinkedListItem *item = addNewLinkedListItem(extensions);
+      item->data = malloc(sizeof(GifExtHeader));
+      memset(item->data, 0, sizeof(GifExtHeader));
+      GifExtHeader *exth = (GifExtHeader *)item->data;
       exth->type = type;
 
       p+=1;
@@ -121,20 +121,20 @@ int main(int argc, char* argv[]){
       exth->data = malloc(sizeof(uint8_t)*((p-pbeforebody)+1));
       memset(exth->data, 0, sizeof(uint8_t)*((p-pbeforebody)+1));
       memcpy(exth->data, pbeforebody, sizeof(uint8_t)*(p-pbeforebody));
-
+ 
       p+=1;
       //printf("END OF EXT %02x->%02x->%02x\n",*(p-1),*p,*(p+1));
     }
 
     //Detect Images
     if(*p==IMG_MARKER){
-      struct LinkedListItem *item = addNewLinkedListItem(images);
-      item->data = malloc(sizeof(struct GifImageDescriptor));
-      memset(item->data, 0, sizeof(struct GifImageDescriptor));
-      struct GifImageDescriptor *d = (struct GifImageDescriptor*)item->data;
-      d->extensions = (struct LinkedList *)extensions;
-      extensions = (struct LinkedList *)malloc(sizeof(struct LinkedList));
-      memset(extensions, 0, sizeof(struct LinkedList));
+      LinkedListItem *item = addNewLinkedListItem(images);
+      item->data = malloc(sizeof(GifImageDescriptor));
+      memset(item->data, 0, sizeof(GifImageDescriptor));
+      GifImageDescriptor *d = (GifImageDescriptor*)item->data;
+      d->extensions = (LinkedList *)extensions;
+      extensions = (LinkedList *)malloc(sizeof(LinkedList));
+      memset(extensions, 0, sizeof(LinkedList));
       
       p+=1;
       d->left = (uint16_t)(*(p+1)<<8 | *p);
@@ -159,17 +159,24 @@ int main(int argc, char* argv[]){
       p+=1;
       d->LZW = *p;
       p+=1;
-
+      
+      uint8_t *beginning_of_image = p; 
       while(*p!=0){
 	p+=(*p)+1;
 	//printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));
       }
+      int image_data_size = p-beginning_of_image;
+      d->image_data_size = image_data_size;
+      d->image_data = (uint8_t *)malloc(image_data_size);
+      //p = beginning_of_image;
+      memcpy(d->image_data, beginning_of_image, image_data_size);
+
       p+=1;
       g.image_count++;
       //printf("END OF IMG %02x->%02x->%02x\n",*(p-1),*p,*(p+1));      
     }
   }
-  g.trailing_extensions = (struct LinkedList *)extensions;
+  g.trailing_extensions = (LinkedList *)extensions;
   extensions=NULL;
 
   if(*p!=GIF_TRAILER){
@@ -186,30 +193,30 @@ int main(int argc, char* argv[]){
   }
   
   printf("Cleaning up\n");
+  free(source_data);  
+
   if(images->length>0){
-    struct LinkedListItem *item = images->first;
-    struct LinkedListItem *nextitem;
+    LinkedListItem *item = images->first;
+    LinkedListItem *nextitem;
 
     do{
-      struct GifImageDescriptor *d = (struct GifImageDescriptor *)item->data;
+      GifImageDescriptor *d = (GifImageDescriptor *)item->data;
+      if(d->image_data!=NULL) free(d->image_data);
       if(d->has_lct) free(d->color_table);
 
-      struct LinkedList *image_descriptor_extensions = d->extensions;
-      struct LinkedListItem *extitem = image_descriptor_extensions->first;
-      struct LinkedListItem *nextextitem;
+      LinkedList *image_descriptor_extensions = d->extensions;
+      LinkedListItem *extitem = image_descriptor_extensions->first;
+      LinkedListItem *nextextitem;
       
       if(image_descriptor_extensions->length){
 	do{
-	  struct GifExtHeader *extheader = (struct GifExtHeader *)extitem->data;
-	  //printf("DATA: %s\n\n", extheader->data);
-	  if(extheader->data!=NULL)
-	  free(extheader->data);
+	  GifExtHeader *extheader = (GifExtHeader *)extitem->data;
+	  if(extheader->data!=NULL) free(extheader->data);
 	  free(extheader);
 	  nextextitem = extitem->next;
 	  extitem=nextextitem;
 	}while(extitem!=0);
       }
-      //free(image_descriptor_extensions);
 
       disposeLinkedList(d->extensions);
       free(d->extensions);
@@ -219,11 +226,8 @@ int main(int argc, char* argv[]){
     }while(item!=0);
   }
   free(g.trailing_extensions);
-
   disposeLinkedList(images);
-  free(source_data);
-  
-  
+
   //free(g.image_descriptors);
   if(g.has_gct) free(g.color_table);
 }
@@ -279,7 +283,7 @@ void printColorTable(uint16_t size, uint32_t *color_table){
   printf("\n\n");
 }
 
-void printGifData(struct Gif g){
+void printGifData(Gif g){
   //printf("\nThe file format is: %s\n", g.version);
   printf("Logical Screen Descriptor\n");
   printf("WIDTH:    %d (0x%04x)\n", g.width, g.width);
@@ -304,15 +308,15 @@ void printGifData(struct Gif g){
 
   printf("Number of Images: %d\n", g.image_count);
   if(g.image_descriptor_linked_list.length>0){
-    struct LinkedListItem *item = g.image_descriptor_linked_list.first;
-    struct LinkedListItem *nextitem;
+    LinkedListItem *item = g.image_descriptor_linked_list.first;
+    LinkedListItem *nextitem;
 
     int i = 0;
     do{
       nextitem = item->next;
-      struct GifImageDescriptor *d = (struct GifImageDescriptor*)item->data;
+      GifImageDescriptor *d = (GifImageDescriptor*)item->data;
       printf("\nImage %d/%d\n", i+1, g.image_count);
-      //struct GifImageDescriptor *d = g.image_descriptor_linked_list[i];
+      //GifImageDescriptor *d = g.image_descriptor_linked_list[i];
       printf("LEFT:       %d (0x%04x)\n", d->left, d->left);
       printf("TOP:        %d (0x%04x)\n", d->top, d->top);
       printf("WIDTH:      %d (0x%02x)\n", d->width, d->width);
@@ -323,16 +327,31 @@ void printGifData(struct Gif g){
       printf("LCT_SIZE:   %d (0x%02x)\n", d->lct_size, d->lct_size);
       if(d->has_lct) 
 	printColorTable(d->lct_size, d->color_table);
-      struct LinkedList *extensions = (struct LinkedList *)d->extensions;
+      LinkedList *extensions = (LinkedList *)d->extensions;
+      printf("ImageData: %d bytes\n", d->image_data_size);
+      /*uint8_t *p = d->image_data;
+      while(*p!=0){
+	//printf("%x\n",*p);
+	int size=*p;
+	int j;
+	for(j=0; j<size; j++){
+	  printf("%02x",*p);
+	  p+=1;
+	}
+	p+=1;
+      }
+      printf("\n");*/
+
+
       printf("Number of Extensions: %d\n", (int)extensions->length);
       if(extensions->length>0){
-	struct LinkedListItem *item = extensions->first;
-	struct LinkedListItem *nextitem;
+	LinkedListItem *item = extensions->first;
+	LinkedListItem *nextitem;
 
 	int i = 0;
 	do{
 	  nextitem = item->next;
-	  struct GifExtHeader *exth = (struct GifExtHeader *)item->data;
+	  GifExtHeader *exth = (GifExtHeader *)item->data;
 	  printf("  Header %d/%d: ", i+1, (int)extensions->length);
 	  switch(exth->type){
 	  case 0xF9: //EXT_GCE_MARKER:

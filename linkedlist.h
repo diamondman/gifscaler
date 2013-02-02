@@ -1,21 +1,21 @@
 
 #ifndef LINKEDLIST_STRUCTS
 #define LINKEDLIST_STRUCTS
-struct LinkedListItem{
+typedef struct LinkedListItem_t{
   int* data;
-  struct LinkedListItem* next;
-};
+  struct LinkedListItem_t* next;
+} LinkedListItem;
 
-struct LinkedList{
-  struct LinkedListItem *first;
-  struct LinkedListItem *last;
+typedef struct LinkedList_t{
+  LinkedListItem *first;
+  LinkedListItem *last;
   long length;
-};
+}LinkedList;
 #endif
 
 #ifndef LINKEDLIST_FUNCTIONS
 #define LINKEDLIST_FUNCTIONS
-void addLinkedListItem(struct LinkedList *list, struct LinkedListItem *item);
-struct LinkedListItem* addNewLinkedListItem(struct LinkedList *list);
-void disposeLinkedList(struct LinkedList *list);
+void addLinkedListItem(LinkedList *list, LinkedListItem *item);
+LinkedListItem* addNewLinkedListItem(LinkedList *list);
+void disposeLinkedList(LinkedList *list);
 #endif

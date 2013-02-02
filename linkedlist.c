@@ -5,7 +5,7 @@
 #include <string.h>
 #include "linkedlist.h"
 
-void addLinkedListItem(struct LinkedList *list, struct LinkedListItem *item){
+void addLinkedListItem(LinkedList *list, LinkedListItem *item){
   if(list->length==0){
     //printf("Adding First Item\n");
     list->first=item; 
@@ -16,16 +16,17 @@ void addLinkedListItem(struct LinkedList *list, struct LinkedListItem *item){
   //printf("Length: %d\n", list->length);
 }
 
-struct LinkedListItem* addNewLinkedListItem(struct LinkedList *list){
-  struct LinkedListItem *item = malloc(sizeof(struct LinkedListItem));
+LinkedListItem* addNewLinkedListItem(LinkedList *list){
+  LinkedListItem *item = malloc(sizeof(LinkedListItem));
+  memset(item, 0, sizeof(LinkedListItem));
   addLinkedListItem(list, item);
   return item;
 }
 
-void disposeLinkedList(struct LinkedList *list){
+void disposeLinkedList(LinkedList *list){
   if(list->length>0){
-    struct LinkedListItem *item = list->first;
-    struct LinkedListItem *nextitem;
+    LinkedListItem *item = list->first;
+    LinkedListItem *nextitem;
     do{
       nextitem = item->next;
       free(item);
