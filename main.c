@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
   g.height = (uint16_t)(*(p+1)<<8 | *p);
   p+=2;
   int gct = (uint8_t)*p;
-  g.has_gct = gct&127>0;
+  g.has_gct = (gct&128)==128;
   g.color_resolution = ((gct&0b01110000)>>4)+1;
   g.colors_sorted = gct&8;
   g.gct_size = g.has_gct?pow(2.0, (float)((gct&0b111)+1)):0;
@@ -105,10 +105,7 @@ int main(int argc, char* argv[]){
   //CHECK PASS
   uint8_t *pbackup = p;
   while(*p==EXT_MARKER||*p==IMG_MARKER){
-    //printf("beginning of Preparse Loop\n");
-    //printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));
     if(*p==EXT_MARKER){
-      //printf("Found EXT %02x\n", *(p+1));
       g.ext_count++;
       p+=1;
       int type=*p;
@@ -121,7 +118,6 @@ int main(int argc, char* argv[]){
       p+=1;
       uint8_t *pbeforebody=p;
       while(*p!=0) p+=(*p)+1;
-      //exth->data=NULL;
       exth->data = malloc(sizeof(uint8_t)*((p-pbeforebody)+1));
       memset(exth->data, 0, sizeof(uint8_t)*((p-pbeforebody)+1));
       memcpy(exth->data, pbeforebody, sizeof(uint8_t)*(p-pbeforebody));
@@ -132,8 +128,6 @@ int main(int argc, char* argv[]){
 
     //Detect Images
     if(*p==IMG_MARKER){
-      //printf("Found Image\n");
-      //printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));      
       struct LinkedListItem *item = addNewLinkedListItem(images);
       item->data = malloc(sizeof(struct GifImageDescriptor));
       memset(item->data, 0, sizeof(struct GifImageDescriptor));
@@ -144,7 +138,6 @@ int main(int argc, char* argv[]){
       
       p+=1;
       d->left = (uint16_t)(*(p+1)<<8 | *p);
-      //printf("LEFT: %x\n", d->left);
       p+=2;
       d->top = (uint16_t)(*(p+1)<<8 | *p);
       p+=2;
@@ -158,8 +151,6 @@ int main(int argc, char* argv[]){
       d->interlaced = tmp&64>0;
       d->sort = tmp&32>0;
       d->lct_size = (d->has_lct)?pow(2.0, (float)((tmp&0b111)+1)):0;
-      //printf("HAS LCT %d\n", d->has_lct);
-      //printf("LCT SIZE %d\n", d->lct_size);
 
       int deltap = 0;
       d->color_table = d->has_lct?extract_color_table(p, d->lct_size, &deltap):0;
@@ -279,7 +270,7 @@ void printColorTable(uint16_t size, uint32_t *color_table){
   int i = 0;
   for(i=0; i<size; i++){
     if(i%29==0){
-      printf("\n%d: ", i);
+      printf("\n  %d: ", i);
       if(i<100) printf(" ");
       if(i<10) printf(" ");
     }
@@ -300,13 +291,13 @@ void printGifData(struct Gif g){
   printf("BGCOLOR:  %d (0x%02x)\n", g.bgcolor, g.bgcolor);
   printf("ARATIO:   %d (0x%02x)\n", g.aspect_ratio, g.aspect_ratio);
 
-  if(g.has_gct){
-    printf("\nGLOBAL COLOR TABLE FOUND\n");
-    //printColorTable(g.gct_size, g.color_table);
-  }
+  if(g.has_gct)//{
+    //printf("\nGLOBAL COLOR TABLE FOUND\n");
+    printColorTable(g.gct_size, g.color_table);
+    //}
 
   if(g.ext_count){
-    printf("FOUND %d EXTENSION(S)\n\n", g.ext_count);
+    //printf("FOUND %d EXTENSION(S)\n\n", g.ext_count);
   }else{
     printf("NO EXTENSIONS FOUND\n\n");
   }
@@ -342,34 +333,40 @@ void printGifData(struct Gif g){
 	do{
 	  nextitem = item->next;
 	  struct GifExtHeader *exth = (struct GifExtHeader *)item->data;
-	  printf("\nHeader %d/%d: ", i+1, (int)extensions->length);
+	  printf("  Header %d/%d: ", i+1, (int)extensions->length);
 	  switch(exth->type){
 	  case 0xF9: //EXT_GCE_MARKER:
-	    printf("GCE Header.");
+	    printf("GCE Header.\n");
+	    printf("    Disposal Method:   %d\n", (*(exth->data+1)&0b11100)>>2);
+            printf("    User Input Flag:   %d\n", (*(exth->data+1)&0b10)>0);
+	    printf("    Transparency:      %d\n", *(exth->data+1)&0b1);
+	    printf("    Delay Time:        %d\n", (uint16_t)(*(exth->data+3)<<8 | *(exth->data+1)));
+	    printf("    Transparent Index: %x\n", *(exth->data+4));
 	    break;
 	  case 0x01: //EXT_TEXT_MARKER:
-	    printf("TEXT Header.");
+	    printf("TEXT Header.\n");
+	    printf("    (\"%s\")", exth->data+1);
 	    break;
 	  case 0xff: //EXT_APP_MARKER:
 	    printf("APP Header.");
 	    break;
 	  case 0xFE: //EXT_COMMENT_MARKER:
-	    printf("COMMENT Header.");
+	    printf("COMMENT Header.\n");
+    	    printf("    (\"%s\")", exth->data+1);
 	    break;
 	  default:
 	    printf("Unknown Ext '%02x'",exth->type);
 	  }
-	  if(exth->type!=EXT_GCE_MARKER)//&&exth->type!=EXT_APP_MARKER)
-	    printf(" (\"%s\")", exth->data+1);
+	  //if(exth->type!=EXT_GCE_MARKER)//&&exth->type!=EXT_APP_MARKER)
 	  i++;
 	  item=nextitem;
+	  printf("\n");
 	}while(item!=0);
-	printf("\n");
+	//	printf("\n");
       }
       i++;
       item=nextitem;
     }while(item!=0);
   }
-  printf("\n");
 }
 
