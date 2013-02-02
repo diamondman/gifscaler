@@ -147,9 +147,9 @@ int main(int argc, char* argv[]){
       p+=2;
 
       int tmp = (uint8_t)*p;
-      d->has_lct = tmp&128>0;
-      d->interlaced = tmp&64>0;
-      d->sort = tmp&32>0;
+      d->has_lct = (tmp&128)>0;
+      d->interlaced = (tmp&64)>0;
+      d->sort = (tmp&32)>0;
       d->lct_size = (d->has_lct)?pow(2.0, (float)((tmp&0b111)+1)):0;
 
       int deltap = 0;
