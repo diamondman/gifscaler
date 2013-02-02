@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <string.h>
+#include "main.h"
 #include "linkedlist.h"
 
 typedef struct GifExtHeader_t{
