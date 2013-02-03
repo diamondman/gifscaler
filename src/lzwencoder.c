@@ -15,17 +15,32 @@ typedef struct LZWTreeEntry_t{
 
 uint16_t reset_rules(LinkedList *dictionary, uint8_t *color_list);
 
+int input_length = 100;
+uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
+
+int color_list_size = 4;
+uint8_t color_list[4] = {0,1,2,3};//{'W','R','B','L'};
+
+int clear_code_number;
+int end_code_number;
+
 int bits_used = 0;
 uint32_t tmpcodebyte = 0;
+uint8_t *output;
+int output_active_length=0;
+int output_size=0;
 void outputCode(uint16_t code, uint8_t bit_length){
   tmpcodebyte|=(code<<bits_used);
   printf("CodeStream: \e[1;32m%d (%d bits)\e[0m\n", code, bit_length);
   bits_used+=bit_length;
-  while(bits_used>=8){
+  printf("Bits Used: %d\n", bits_used);
+  while(bits_used>=8||(bits_used>0&&code==end_code_number)){
     uint8_t outbyte = tmpcodebyte&0xff;
     tmpcodebyte = tmpcodebyte>>8;
     bits_used-=8;
     printf("Output Byte: %02x\n", outbyte);
+    output[output_active_length] = outbyte;
+    output_active_length++;
   }
 }
 
@@ -44,21 +59,18 @@ void freeRuleDictionary(LinkedList *dictionary){
   disposeLinkedList(dictionary);
 }
 
-int input_length = 100;
-uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
-
-int color_list_size = 4;
-uint8_t color_list[4] = {0,1,2,3};//{'W','R','B','L'};
-
 int main(int argc, char* argv[]){
+  output = malloc(sizeof(uint8_t)*input_length);
+  output_size=input_length;
+
   int deepest_level = 0;
   printf("TEST: %d\n", 7>>3);
   LinkedList dictionary;
   memset(&dictionary, 0, sizeof(LinkedList));
   
   uint16_t current_rule_id = reset_rules(&dictionary, &color_list);
-  int clear_code_number = current_rule_id;
-  int end_code_number = current_rule_id+1;
+  clear_code_number = current_rule_id;
+  end_code_number = current_rule_id+1;
   current_rule_id+=2;
   
   int LZWmin = (int)ceil(log2(current_rule_id));
@@ -147,8 +159,12 @@ int main(int argc, char* argv[]){
   outputCode(end_code_number, LZWmin);
   
   freeRuleDictionary(&dictionary);
-  //free(dictionary);
 
+  int m;
+  for(m=0; m<output_active_length; m++) printf("%02x ", output[m]);
+  printf("\n");
+
+  free(output);
   return 0;
 }
 
