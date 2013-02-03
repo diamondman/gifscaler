@@ -9,6 +9,6 @@ all:
 	$(CC) $(CFLAGS) -o giffixer $(SOURCE) $(LFLAGS)
 
 
-clean:
-	$(RM) $(APPS)
-	$(RM) -r *.dSYM
+#clean:
+#	$(RM) $()
+#o	$(RM) -r *.dSYM
