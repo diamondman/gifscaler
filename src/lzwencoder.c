@@ -30,17 +30,16 @@ void outputCode(uint16_t code, uint8_t bit_length){
 }
 
 void freeRuleDictionary(LinkedList *dictionary){
-  if(dictionary->length>0){
-    LinkedListItem *item = dictionary->first;
-      do{
-	LZWTreeEntry *lzwentry = item->data;
-	if(lzwentry->children!=NULL){
-	  freeRuleDictionary(lzwentry->children);
-	  free(lzwentry->children);
-	  free(lzwentry);
-	}
-	item=item->next;
-      }while(item!=0);
+  LinkedListItem *item = dictionary->first;
+  LZWTreeEntry *lzwentry;;
+  while(item){
+    lzwentry = item->data;
+    if(lzwentry->children){
+      freeRuleDictionary(lzwentry->children);
+      free(lzwentry->children);
+      free(lzwentry);
+    }
+    item=item->next;
   }
   disposeLinkedList(dictionary);
 }
@@ -129,14 +128,15 @@ int main(int argc, char* argv[]){
 	
 	current_rule_id++;
 	int nextLZWmin = (int)ceil(log2(current_rule_id));
-	/*if(nextLZWmin>12){
+	if(nextLZWmin>12){
 	  outputCode(clear_code_number, LZWmin);
+	  freeRuleDictionary(&dictionary);
 	  current_rule_id = reset_rules(&dictionary, &color_list);
 	  clear_code_number = current_rule_id;
 	  end_code_number = current_rule_id+1;
 	  current_rule_id+=2;
 	  LZWmin = (int)ceil(log2(current_rule_id));
-	}else*/
+	}else
 	  LZWmin = nextLZWmin;
 	  
 	break;
