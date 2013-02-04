@@ -152,7 +152,7 @@ int main(int argc, char* argv[]){
 	new_rule_entry->data = (void*)treeentry;
 	treeentry->children = malloc(sizeof(LinkedList));
 	memset(treeentry->children, 0, sizeof(LinkedList));
-	treeentry->data = input[start_index+j-1];
+	treeentry->data = input[start_index+(i-start_index)-1];
 	treeentry->code_number = current_rule_id;
 	treeentry->level = last_matched_rule->level+1;
 	if(treeentry->level>deepest_level)deepest_level=treeentry->level;
