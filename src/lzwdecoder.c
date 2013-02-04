@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "linkedlist.h"
-
+//#define DEBUG
 typedef struct LZWDecoderEntry_t{
   int length;
   uint8_t *data;
@@ -39,7 +39,9 @@ int main(int argc, char* argv[]){
     codes[i].length=1;
     codes[i].data = malloc(sizeof(uint8_t)*codes[i].length);
     codes[i].data[0] = number_of_codes;
+    #ifdef DEBUG
     printf("Code num: %d\n", number_of_codes);
+    #endif
     number_of_codes++;
   }
 
@@ -51,32 +53,42 @@ int main(int argc, char* argv[]){
   uint8_t rawbyte;
   for(i=0; i<encoded_source_length; i++){
     rawbyte = encoded_source[i];
+    #ifdef DEBUG
     printf("\nraw byte: 0x%02x\n", rawbyte);
+    #endif
     current_bit=0;
     while(current_bit<8){
       int code=0;
       int mask = ((int)pow(2, LZWmin))-1;
+      #ifdef DEBUG
       printf("\nmodified raw byte: 0x%02x; Current bit: %d; LZW: %d\n", rawbyte, current_bit, LZWmin);
+      #endif
       LZWmin = (int)ceil(log2(number_of_codes+1));
       if(current_bit+LZWmin>8){
 	i++;
 	current_bit=(current_bit+LZWmin)-8;
 	int tmpmask = ((int)pow(2, current_bit))-1;
+	code=((encoded_source[i]&tmpmask)<<(LZWmin-current_bit))|(rawbyte&mask);
+	#ifdef DEBUG
 	printf("Current tmpbitmask: %02x\n", tmpmask);
 	printf("Current bit: %02x\n", current_bit);
 	printf("Boundary Byte: %02x | %02x\n", ((encoded_source[i]&tmpmask)<<(LZWmin-current_bit)), (rawbyte&mask));
-	code=((encoded_source[i]&tmpmask)<<(LZWmin-current_bit))|(rawbyte&mask);
 	printf("Pre shift raw byte: 0x%02x\n", encoded_source[i]);
+	#endif
 	rawbyte=encoded_source[i]>>current_bit;
+	#ifdef DEBUG
 	printf("preemptive rawbyte 0x%02x\n", rawbyte);
+	#endif
       }else{
 	current_bit+=LZWmin;
 	code = rawbyte&mask;
 	rawbyte=rawbyte>>LZWmin;
       }
+      #ifdef DEBUG
       printf("Code: %d\n", code);
-      if(code==end_code_number)break;
       printf("Current Bit %d\n",current_bit);
+      #endif
+      if(code==end_code_number)break;
       if(last_code==-1 && code!=clear_code_number){// && code!=end_code_number){
 	last_code=code;
       }else if(code!=clear_code_number){// && code!=end_code_number){
@@ -90,21 +102,27 @@ int main(int argc, char* argv[]){
 	codes[number_of_codes].data = malloc(codes[number_of_codes].length*sizeof(uint8_t));
 	memcpy(codes[number_of_codes].data, codes[last_code].data, codes[last_code].length);
 	codes[number_of_codes].data[codes[number_of_codes].length-1] = suffix;
+	#ifdef DEBUG
 	printf("Adding Code %d based on code %d; ", number_of_codes, last_code);
 	int j;
 	for(j=0;j<codes[number_of_codes].length; j++)printf("%d ", codes[number_of_codes].data[j]);
 	printf("\n");
+	#endif
 	last_code=code;
 	number_of_codes++;
+	#ifdef DEBUG
 	printf("New LZW: %d; new number_of_codes: %d\n", LZWmin, number_of_codes);
+	#endif
       }else last_code=-1;
       if(code!=end_code_number&&code!=clear_code_number){
-	printf("Index Stream: \e[1;32m");
 	memcpy(output_indexes+output_index_position, codes[code].data, codes[code].length);
 	output_index_position+=codes[code].length;
+	#ifdef DEBUG
+	printf("Index Stream: \e[1;32m");
 	int j;
 	for(j=0;j<codes[code].length; j++)printf("%d ", codes[code].data[j]);
 	printf("\e[0m\n");
+        #endif
       }
     }
   }
