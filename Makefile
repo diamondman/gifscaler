@@ -3,12 +3,12 @@
 CC = gcc
 LFLAGS = -lm
 CFLAGS = -g
-SOURCE = src/linkedlist.c src/main.c
 
 all: 
-	$(CC) $(CFLAGS) -o giffixer $(SOURCE) $(LFLAGS)
+	$(CC) $(CFLAGS) -o giffixer src/linkedlist.c src/main.c $(LFLAGS)
+	$(CC) $(CFLAGS) -o encoder src/linkedlist.c src/lzwencoder.c $(LFLAGS)
+	$(CC) $(CFLAGS) -o decoder src/linkedlist.c src/lzwdecoder.c $(LFLAGS)
 
 
-#clean:
-#	$(RM) $()
-#o	$(RM) -r *.dSYM
+clean:
+	$(RM) giffixer encoder decoder
