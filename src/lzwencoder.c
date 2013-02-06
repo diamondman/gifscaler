@@ -5,7 +5,7 @@
 #include <math.h>
 #include "linkedlist.h"
 
-//#define DEBUG 1
+#define DEBUG 1
 
 typedef struct LZWTreeEntry_t{
   int count;
@@ -14,6 +14,10 @@ typedef struct LZWTreeEntry_t{
   struct LinkedList *children;
   int level;
 } LZWTreeEntry;
+
+typedef struct LZWDecoderData_t{
+  
+}LZWDecoderData;
 
 uint16_t reset_rules(LinkedList *dictionary, uint8_t *color_list);
 
@@ -68,56 +72,46 @@ void freeRuleDictionary(LinkedList *dictionary){
 }
 
 int main(int argc, char* argv[]){
+  int deepest_level = 0;
+  LinkedList dictionary;
+  memset(&dictionary, 0, sizeof(LinkedList));
   output = malloc(sizeof(uint8_t)*input_length);
   output_size=input_length;
 
-  int deepest_level = 0;
-  #ifdef DEBUG
-  printf("TEST: %d\n", 7>>3);
-  #endif
-  LinkedList dictionary;
-  memset(&dictionary, 0, sizeof(LinkedList));
-  
   uint16_t current_rule_id = reset_rules(&dictionary, (uint8_t*)&color_list);
   clear_code_number = current_rule_id;
   end_code_number = current_rule_id+1;
   current_rule_id+=2;
   
   int LZWmin = (int)ceil(log2(current_rule_id));
-
   int start_index = 0;
   int resolved_indexes = 0;
   LinkedList *dictionary_branch = &dictionary;
   LZWTreeEntry *last_matched_rule = NULL;
-  uint16_t i;
   outputCode(clear_code_number, LZWmin);
-  for(i=1; i<=input_length; i++){
+
+  for(uint8_t end_index=1; end_index<=input_length; end_index++){
     #ifdef DEBUG
-    printf("\nStarting Search from %d to %d: ", start_index, i);
-    int k;
-    for(k=0; k<input_length; k++){
-      if(k==start_index)printf("\e[1;34m");
-      printf("%d ",input[k]);
-      if(k+1==i)printf("\e[0m");
+    printf("\nStarting Search from %d to %d: ", start_index, end_index);
+    for(int input_byte_index=0; input_byte_index<input_length; input_byte_index++){
+      if(input_byte_index==start_index)printf("\e[1;34m");
+      printf("%d ",input[input_byte_index]);
+      if(input_byte_index+1==end_index)printf("\e[0m");
     }
     printf("\e[0m\n");
-    #endif
-
-    int j;
-    #ifdef DEBUG
-    for(j=0; j<i-start_index; j++) printf("%d", input[start_index+j]);
+    for(int j=0; j<end_index-start_index; j++) printf("%d", input[start_index+j]);
     printf("\n");
     #endif
+
     LinkedListItem *item = dictionary_branch->first;
     LinkedListItem *nextitem;
-
-    for(j=resolved_indexes; j<i-start_index; j++){
+    for(int subselect_index=resolved_indexes; subselect_index<end_index-start_index; subselect_index++){
       #ifdef DEBUG
-      printf("Checking symbol #%d (%d)\n", start_index+j, input[start_index+j]);
+      printf("Checking symbol #%d (%d)\n", start_index+subselect_index, input[start_index+subselect_index]);
       #endif
       uint8_t found = 0;
       do{
-	if(item==NULL){
+        if(item==NULL){
 	  #ifdef DEBUG
 	  printf("NO CHILDREN FOUND\n");
 	  #endif
@@ -127,7 +121,7 @@ int main(int argc, char* argv[]){
         #ifdef DEBUG
 	printf("checking against level %d, rule id: %d value: %d\n", treeentry->level, treeentry->code_number, treeentry->data);
 	#endif
-	if(treeentry->data==input[start_index+j]){
+	if(treeentry->data==input[start_index+subselect_index]){
 	  #ifdef DEBUG
 	  printf("FOUND level %d rule %d; id %d\n", treeentry->level, treeentry->data, treeentry->code_number);
 	  #endif
@@ -140,10 +134,11 @@ int main(int argc, char* argv[]){
 	nextitem = item->next;
 	item=nextitem;
       }while(item!=0);
+
       if(found!=1){
 	#ifdef DEBUG
 	printf("\e[1;33mADDING RULE id: %d; ", current_rule_id);
-	for(j=0; j<i-start_index; j++) printf("%d", input[start_index+j]);
+	for(int rule_data_index=0; rule_data_index<end_index-start_index; rule_data_index++) printf("%d", input[start_index+rule_data_index]);
 	printf("\e[0m\n");
 	#endif
 	outputCode(last_matched_rule->code_number, LZWmin);
@@ -152,13 +147,13 @@ int main(int argc, char* argv[]){
 	new_rule_entry->data = (void*)treeentry;
 	treeentry->children = malloc(sizeof(LinkedList));
 	memset(treeentry->children, 0, sizeof(LinkedList));
-	treeentry->data = input[start_index+(i-start_index)-1];
+	treeentry->data = input[start_index+(end_index-start_index)-1];
 	treeentry->code_number = current_rule_id;
 	treeentry->level = last_matched_rule->level+1;
 	if(treeentry->level>deepest_level)deepest_level=treeentry->level;
 	dictionary_branch = &dictionary;
-	start_index=i-1;
-	i--;
+	start_index=end_index-1;
+	end_index--;
 	resolved_indexes = 0;
 	last_matched_rule=NULL;
 	
@@ -184,8 +179,7 @@ int main(int argc, char* argv[]){
   
   freeRuleDictionary(&dictionary);
 
-  int m;
-  for(m=0; m<output_active_length; m++) printf("%02x ", output[m]);
+  for(int m=0; m<output_active_length; m++) printf("%02x ", output[m]);
   printf("\n");
 
   free(output);

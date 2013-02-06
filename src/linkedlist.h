@@ -2,7 +2,7 @@
 #ifndef LINKEDLIST_STRUCTS
 #define LINKEDLIST_STRUCTS
 typedef struct LinkedListItem_t{
-  int* data;
+  void* data;
   struct LinkedListItem_t* next;
 } LinkedListItem;
 

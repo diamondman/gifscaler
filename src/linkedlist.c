@@ -32,6 +32,7 @@ void disposeLinkedList(LinkedList *list){
       free(item);
       item=nextitem;
     }while(item!=0);
+    memset(list, 0, sizeof(LinkedList));
     list->length=0;
     list->last=NULL;
     list->first=NULL;

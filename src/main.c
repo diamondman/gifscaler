@@ -261,8 +261,7 @@ uint8_t* loadFile(char *path, uint32_t* data_copied){
 
 uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data){
   uint32_t *color_table = (uint32_t*)malloc(table_size*3*sizeof(uint32_t));
-  int i;
-  for(i=0; i<table_size; i++){
+  for(int i=0; i<table_size; i++){
     color_table[i] = (*data<<16) | (*(data+1)<<8) | *(data+2);
     *delta_data+=3;
     data+=3;
@@ -272,8 +271,7 @@ uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_dat
 
 void printColorTable(uint16_t size, uint32_t *color_table){
   printf("COLOR TABLE VALUES");
-  int i = 0;
-  for(i=0; i<size; i++){
+  for(int i=0; i<size; i++){
     if(i%29==0){
       printf("\n  %d: ", i);
       if(i<100) printf(" ");

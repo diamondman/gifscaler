@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
-#include "linkedlist.h"
+//#include "linkedlist.h"
 //#define DEBUG
 typedef struct LZWDecoderEntry_t{
   int length;
