@@ -5,7 +5,7 @@
 #include <math.h>
 #include "linkedlist.h"
 
-#define DEBUG 1
+//#define DEBUG 1
 
 typedef struct LZWTreeEntry_t{
   int count;
@@ -19,11 +19,11 @@ typedef struct LZWDecoderData_t{
   int clear_code_number;
   int end_code_number;
   
-  int bits_used;// = 0;
-  uint32_t tmpcodebyte;// = 0;
+  int bits_used;
+  uint32_t tmpcodebyte;
   uint8_t *output;
-  int output_active_length;//=0;
-  int output_size;//=0;
+  int output_active_length;
+  int output_size;
 
   LinkedList dictionary;
   uint16_t next_rule_id;
@@ -33,35 +33,45 @@ typedef struct LZWDecoderData_t{
   int resolved_indexes;
   LinkedList *dictionary_branch;
   LZWTreeEntry *last_matched_rule;
+  int initial_dictionary_size;
 }LZWDecoderData;
 
-uint16_t reset_rules(LinkedList *dictionary);
+uint16_t reset_rules(LZWDecoderData *ld){
+  uint16_t next_rule_id;
+  for(next_rule_id=0; next_rule_id < ld->initial_dictionary_size; next_rule_id++){
+    LinkedListItem *dentry = addNewLinkedListItem(&ld->dictionary);
+    LZWTreeEntry *treeentry = malloc(sizeof(LZWTreeEntry));
+    treeentry->children = malloc(sizeof(LinkedList));
+    memset(treeentry->children, 0, sizeof(LinkedList));
+    treeentry->data = next_rule_id;
+    treeentry->code_number = next_rule_id;
+    treeentry->level=0;
+    dentry->data = (int*)treeentry;
+    #ifdef DEBUG
+    printf("Added %d: %d\n", next_rule_id, next_rule_id);
+    #endif
+  }
+  return next_rule_id;
+}
 
-int input_length = 100;
-uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
-
-int color_list_size = 4;
-
-LZWDecoderData ld;
-
-void outputCode(uint16_t code, uint8_t bit_length){
-  ld.tmpcodebyte|=(code<<ld.bits_used);
-  ld.bits_used+=bit_length;
+void outputCode(LZWDecoderData *ld, uint16_t code){
+  ld->tmpcodebyte|=(code<<ld->bits_used);
+  ld->bits_used+=ld->LZWmin;
 
   #ifdef DEBUG
-  printf("CodeStream: \e[1;32m%d (%d bits)\e[0m\n", code, bit_length);
-  printf("Bits Used: %d\n", ld.bits_used);
+  printf("CodeStream: \e[1;32m%d (%d bits)\e[0m\n", code, ld->LZWmin);
+  printf("Bits Used: %d\n", ld->bits_used);
   #endif
 
-  while(ld.bits_used>=8||(ld.bits_used>0&&code==ld.end_code_number)){
-    uint8_t outbyte = ld.tmpcodebyte&0xff;
-    ld.tmpcodebyte = ld.tmpcodebyte>>8;
-    ld.bits_used-=8;
+  while(ld->bits_used>=8||(ld->bits_used>0&&code==ld->end_code_number)){
+    uint8_t outbyte = ld->tmpcodebyte&0xff;
+    ld->tmpcodebyte = ld->tmpcodebyte>>8;
+    ld->bits_used-=8;
     #ifdef DEBUG
     printf("Output Byte: %02x\n", outbyte);
     #endif
-    ld.output[ld.output_active_length] = outbyte;
-    ld.output_active_length++;
+    ld->output[ld->output_active_length] = outbyte;
+    ld->output_active_length++;
   }
 }
 
@@ -80,40 +90,44 @@ void freeRuleDictionary(LinkedList *dictionary){
   disposeLinkedList(dictionary);
 }
 
-int main(int argc, char* argv[]){
-  memset(&ld,0,sizeof(LZWDecoderData));
-  ld.output = malloc(sizeof(uint8_t)*input_length);
-  ld.output_size=input_length;
-  ld.next_rule_id = reset_rules(&ld.dictionary);
-  ld.clear_code_number = ld.next_rule_id;
-  ld.end_code_number = ld.next_rule_id+1;
-  ld.next_rule_id+=2;
+void initialize_encoder(LZWDecoderData *ld, int initial_lzw_dictionary_size){
+  int input_length = 100;
+  memset(ld,0,sizeof(LZWDecoderData));
+  ld->initial_dictionary_size = initial_lzw_dictionary_size;
+  ld->output = malloc(sizeof(uint8_t)*input_length);
+  ld->output_size=input_length;
+  ld->next_rule_id = reset_rules(ld);
+  ld->clear_code_number = ld->next_rule_id;
+  ld->end_code_number = ld->next_rule_id+1;
+  ld->next_rule_id+=2;
   
-  ld.LZWmin = (int)ceil(log2(ld.next_rule_id));
-  ld.start_index = 0;
-  ld.resolved_indexes = 0;
-  ld.dictionary_branch = &ld.dictionary;
-  ld.last_matched_rule = NULL;
-  outputCode(ld.clear_code_number, ld.LZWmin);
+  ld->LZWmin = (int)ceil(log2(ld->next_rule_id));
+  ld->start_index = 0;
+  ld->resolved_indexes = 0;
+  ld->dictionary_branch = &ld->dictionary;
+  ld->last_matched_rule = NULL;
+}
 
+void lzwEncode(LZWDecoderData *ld, uint8_t *input, int input_length){
+  outputCode(ld, ld->clear_code_number);
   for(uint8_t end_index=1; end_index<=input_length; end_index++){
     #ifdef DEBUG
-    printf("\nStarting Search from %d to %d: ", ld.start_index, end_index);
+    printf("\nStarting Search from %d to %d: ", ld->start_index, end_index);
     for(int input_byte_index=0; input_byte_index<input_length; input_byte_index++){
-      if(input_byte_index==ld.start_index)printf("\e[1;34m");
+      if(input_byte_index==ld->start_index)printf("\e[1;34m");
       printf("%d ",input[input_byte_index]);
       if(input_byte_index+1==end_index)printf("\e[0m");
     }
     printf("\e[0m\n");
-    for(int j=0; j<end_index-ld.start_index; j++) printf("%d", input[ld.start_index+j]);
+    for(int j=0; j<end_index-ld->start_index; j++) printf("%d", input[ld->start_index+j]);
     printf("\n");
     #endif
 
-    LinkedListItem *item = ld.dictionary_branch->first;
+    LinkedListItem *item = ld->dictionary_branch->first;
     LinkedListItem *nextitem;
-    for(int subselect_index=ld.resolved_indexes; subselect_index<end_index-ld.start_index; subselect_index++){
+    for(int subselect_index=ld->resolved_indexes; subselect_index<end_index-ld->start_index; subselect_index++){
       #ifdef DEBUG
-      printf("Checking symbol #%d (%d)\n", ld.start_index+subselect_index, input[ld.start_index+subselect_index]);
+      printf("Checking symbol #%d (%d)\n", ld->start_index+subselect_index, input[ld->start_index+subselect_index]);
       #endif
       uint8_t found = 0;
       do{
@@ -127,14 +141,14 @@ int main(int argc, char* argv[]){
         #ifdef DEBUG
 	printf("checking against level %d, rule id: %d value: %d\n", treeentry->level, treeentry->code_number, treeentry->data);
 	#endif
-	if(treeentry->data==input[ld.start_index+subselect_index]){
+	if(treeentry->data==input[ld->start_index+subselect_index]){
 	  #ifdef DEBUG
 	  printf("FOUND level %d rule %d; id %d\n", treeentry->level, treeentry->data, treeentry->code_number);
 	  #endif
 	  found=1;
-	  ld.resolved_indexes++;
-	  ld.dictionary_branch=(LinkedList *)treeentry->children;
-	  ld.last_matched_rule = treeentry;
+	  ld->resolved_indexes++;
+	  ld->dictionary_branch=(LinkedList *)treeentry->children;
+	  ld->last_matched_rule = treeentry;
 	  break;
 	}
 	nextitem = item->next;
@@ -143,68 +157,59 @@ int main(int argc, char* argv[]){
 
       if(found!=1){
 	#ifdef DEBUG
-	printf("\e[1;33mADDING RULE id: %d; ", ld.next_rule_id);
-	for(int rule_data_index=0; rule_data_index<end_index-ld.start_index; rule_data_index++) printf("%d", input[ld.start_index+rule_data_index]);
+	printf("\e[1;33mADDING RULE id: %d; ", ld->next_rule_id);
+	for(int rule_data_index=0; rule_data_index<end_index-ld->start_index; rule_data_index++) printf("%d", input[ld->start_index+rule_data_index]);
 	printf("\e[0m\n");
 	#endif
-	outputCode(ld.last_matched_rule->code_number, ld.LZWmin);
-	LinkedListItem *new_rule_entry = addNewLinkedListItem(ld.dictionary_branch);
+	outputCode(ld, ld->last_matched_rule->code_number);
+	LinkedListItem *new_rule_entry = addNewLinkedListItem(ld->dictionary_branch);
 	LZWTreeEntry *treeentry = malloc(sizeof(LZWTreeEntry));
 	new_rule_entry->data = (void*)treeentry;
 	treeentry->children = malloc(sizeof(LinkedList));
 	memset(treeentry->children, 0, sizeof(LinkedList));
-	treeentry->data = input[ld.start_index+(end_index-ld.start_index)-1];
-	treeentry->code_number = ld.next_rule_id;
-	treeentry->level = ld.last_matched_rule->level+1;
-       	ld.dictionary_branch = &ld.dictionary;
-	ld.start_index=end_index-1;
+	treeentry->data = input[ld->start_index+(end_index-ld->start_index)-1];
+	treeentry->code_number = ld->next_rule_id;
+	treeentry->level = ld->last_matched_rule->level+1;
+       	ld->dictionary_branch = &ld->dictionary;
+	ld->start_index=end_index-1;
 	end_index--;
-	ld.resolved_indexes = 0;
-	ld.last_matched_rule=NULL;
+	ld->resolved_indexes = 0;
+	ld->last_matched_rule=NULL;
 	
-	ld.next_rule_id++;
-	int nextLZWmin = (int)ceil(log2(ld.next_rule_id));
+	ld->next_rule_id++;
+	int nextLZWmin = (int)ceil(log2(ld->next_rule_id));
 	if(nextLZWmin>12){
-	  outputCode(ld.clear_code_number, ld.LZWmin);
-	  freeRuleDictionary(&ld.dictionary);
-	  ld.next_rule_id = reset_rules(&ld.dictionary);
-	  ld.clear_code_number = ld.next_rule_id;
-	  ld.end_code_number = ld.next_rule_id+1;
-	  ld.next_rule_id+=2;
-	  ld.LZWmin = (int)ceil(log2(ld.next_rule_id));
+	  outputCode(ld, ld->clear_code_number);
+	  freeRuleDictionary(&ld->dictionary);
+	  ld->next_rule_id = reset_rules(ld);
+	  ld->clear_code_number = ld->next_rule_id;
+	  ld->end_code_number = ld->next_rule_id+1;
+	  ld->next_rule_id+=2;
+	  ld->LZWmin = (int)ceil(log2(ld->next_rule_id));
 	}else
-	  ld.LZWmin = nextLZWmin;
+	  ld->LZWmin = nextLZWmin;
 	  
 	break;
       }
     }
   }
-  outputCode(ld.last_matched_rule->code_number, ld.LZWmin);
-  outputCode(ld.end_code_number, ld.LZWmin);
-  
+  outputCode(ld, ld->last_matched_rule->code_number);
+  outputCode(ld, ld->end_code_number);
+}
+
+int main(int argc, char* argv[]){
+  int input_length = 100;
+  uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
+  int color_list_size = 4;
+
+  LZWDecoderData ld;
+  initialize_encoder(&ld, color_list_size);
+  lzwEncode(&ld, input, input_length);
   freeRuleDictionary(&ld.dictionary);
 
-  for(int m=0; m<ld.output_active_length; m++) printf("%02x ", ld.output[m]);
-  printf("\n");
+  for(int m=0; m<ld.output_active_length; m++) printf("%02x ", ld.output[m]); printf("\n");
 
   free(ld.output);
   return 0;
 }
 
-uint16_t reset_rules(LinkedList *dictionary){
-  uint16_t next_rule_id;
-  for(next_rule_id=0; next_rule_id < color_list_size; next_rule_id++){
-    LinkedListItem *dentry = addNewLinkedListItem(dictionary);
-    LZWTreeEntry *treeentry = malloc(sizeof(LZWTreeEntry));
-    treeentry->children = malloc(sizeof(LinkedList));
-    memset(treeentry->children, 0, sizeof(LinkedList));
-    treeentry->data = next_rule_id;
-    treeentry->code_number = next_rule_id;
-    treeentry->level=0;
-    dentry->data = (int*)treeentry;
-    #ifdef DEBUG
-    printf("Added %d: %d\n", next_rule_id, next_rule_id);
-    #endif
-  }
-  return next_rule_id;
-}
