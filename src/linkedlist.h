@@ -1,4 +1,3 @@
-
 #ifndef LINKEDLIST_STRUCTS
 #define LINKEDLIST_STRUCTS
 typedef struct LinkedListItem_t{

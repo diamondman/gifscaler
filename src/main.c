@@ -5,6 +5,7 @@
 #include <string.h>
 #include "main.h"
 #include "linkedlist.h"
+#include "lzwdecoder.h"
 
 typedef struct GifExtHeader_t{
   uint8_t type;
@@ -25,6 +26,7 @@ typedef struct GifImageDescriptor_t{
   uint8_t LZW;
   int image_data_size;
   uint8_t *image_data;
+  uint8_t *image_color_index_data;
 } GifImageDescriptor;
 
 typedef struct Gif_t{
@@ -103,8 +105,9 @@ int main(int argc, char* argv[]){
   g.color_table = g.has_gct?extract_color_table(p, g.gct_size, &deltap):0;
   p+=deltap;
 
-  //CHECK PASS
+  //Image and Extension check
   uint8_t *pbackup = p;
+  LZWEncoderData ed;
   while(*p==EXT_MARKER||*p==IMG_MARKER){
     if(*p==EXT_MARKER){
       g.ext_count++;
@@ -161,14 +164,25 @@ int main(int argc, char* argv[]){
       d->LZW = *p;
       p+=1;
       
+      uint32_t LZW_dict_init_size = pow(2.0, (float)d->LZW);
+      memset(&ed, 0, sizeof(LZWEncoderData));
+      printf("Init Dict Size: %d\n", LZW_dict_init_size);
+      initialize_lzwdecoder(&ed, LZW_dict_init_size, d->width*d->height);
       uint8_t *beginning_of_image = p; 
       while(*p!=0){
+	lzwDecode(&ed, p+1, *p);
 	p+=(*p)+1;
 	//printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));
       }
+      //printf("Image Data: ");
+      //for(int j=0;j<d->width*d->height; j++)printf("%d ", ed.output_indexes[j]); printf("\n");
+      d->image_color_index_data = ed.output_indexes;
+      free_lzwdecoder(&ed, 0);
+
       int image_data_size = p-beginning_of_image;
       d->image_data_size = image_data_size;
       d->image_data = (uint8_t *)malloc(image_data_size);
+      memset(d->image_data, 0, d->image_data_size);
       //p = beginning_of_image;
       memcpy(d->image_data, beginning_of_image, image_data_size);
 
@@ -204,6 +218,7 @@ int main(int argc, char* argv[]){
       GifImageDescriptor *d = (GifImageDescriptor *)item->data;
       if(d->image_data!=NULL) free(d->image_data);
       if(d->has_lct) free(d->color_table);
+      if(d->image_color_index_data) free(d->image_color_index_data);
 
       LinkedList *image_descriptor_extensions = d->extensions;
       LinkedListItem *extitem = image_descriptor_extensions->first;
@@ -328,18 +343,18 @@ void printGifData(Gif g){
 	printColorTable(d->lct_size, d->color_table);
       LinkedList *extensions = (LinkedList *)d->extensions;
       printf("ImageData: %d bytes\n", d->image_data_size);
-      /*uint8_t *p = d->image_data;
+      uint8_t *p = d->image_data;
       while(*p!=0){
 	//printf("%x\n",*p);
 	int size=*p;
 	int j;
 	for(j=0; j<size; j++){
-	  printf("%02x",*p);
+	  printf("%02x ",*p);
 	  p+=1;
 	}
 	p+=1;
       }
-      printf("\n");*/
+      printf("\n");
 
 
       printf("Number of Extensions: %d\n", (int)extensions->length);

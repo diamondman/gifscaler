@@ -62,6 +62,7 @@ void outputCode(LZWDecoderData *ld, uint16_t code){
   printf("CodeStream: \e[1;32m%d (%d bits)\e[0m\n", code, ld->LZWmin);
   printf("Bits Used: %d\n", ld->bits_used);
   #endif
+  //printf("\e[1;32m%d ", code);
 
   while(ld->bits_used>=8||(ld->bits_used>0&&code==ld->end_code_number)){
     uint8_t outbyte = ld->tmpcodebyte&0xff;
