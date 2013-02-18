@@ -342,7 +342,7 @@ void printGifData(Gif g){
       if(d->has_lct) 
 	printColorTable(d->lct_size, d->color_table);
       LinkedList *extensions = (LinkedList *)d->extensions;
-      printf("ImageData: %d bytes\n", d->image_data_size);
+      printf("ImageData: %d bytes\n", d->image_data_size);      
       uint8_t *p = d->image_data;
       while(*p!=0){
 	//printf("%x\n",*p);
@@ -355,6 +355,9 @@ void printGifData(Gif g){
 	p+=1;
       }
       printf("\n");
+
+      printf("Decoded Image Data: ");
+      for(int j=0;j<d->width*d->height; j++)printf("%d ", d->image_color_index_data[j]); printf("\n");
 
 
       printf("Number of Extensions: %d\n", (int)extensions->length);
