@@ -38,7 +38,7 @@ void initialize_lzwdecoder(LZWEncoderData *ed, int color_list_size, int decode_b
 }
 
 int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_length){
-  printf("\n****NEXT CALL****\n\n");
+  printf("\n****NEXT CALL %d BYTES****\n\n", encoded_source_length);
   if(encoded_source_length<1) return -2;
   uint8_t rawbyte;
   for(int i=0; i<encoded_source_length; i++){
@@ -55,14 +55,18 @@ int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_le
 
       int mask;
       if(ed->straddling_bits>0){
+#ifdef DEBUG
 	printf("Making Mask on straddling bits (%d bits)\n", ed->straddling_bits);
+#endif
 	mask = ((int)pow(2, ed->straddling_bits))-1;
       }else{
-	printf("Clearing code\n");
 	ed->code=0;
 	mask = ((int)pow(2, ed->LZWmin))-1;
 	ed->code = rawbyte&mask;
+#ifdef DEBUG
+	printf("Clearing code\n");
 	printf("Code stage 1 set to %d\n",ed->code);
+#endif
       }
       
       ed->LZWmin = (int)ceil(log2(ed->number_of_codes+1));
@@ -70,40 +74,49 @@ int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_le
 	int tmpmask;
 	int bits_to_use;
 	if(ed->straddling_bits>0){
+#ifdef DEBUG
 	  printf("stuff for straddling bits\n");
+#endif
 	  ed->current_bit=(ed->straddling_bits);
 	  bits_to_use = ed->straddling_bits;
 	  ed->straddling_bits = 0;
 	}else{
+#ifdef DEBUG
 	  printf("normal stuff\n");
+#endif
 	  i++;
 	  ed->current_bit=(ed->current_bit+ed->LZWmin)-8;
 	  bits_to_use = ed->current_bit;//LZWmin;
 	}
 	tmpmask = ((int)pow(2, bits_to_use))-1;
+#ifdef DEBUG
 	printf("Current tmpbitmask: %02x\n", tmpmask);
 	
 	printf("Mask Bits: %d\n", bits_to_use);
+#endif
 	if(i<encoded_source_length){
+#ifdef DEBUG
 	  printf("Right Shift Count: %d\n", ed->LZWmin-ed->current_bit);
 	  printf("masked byte %02x\n", encoded_source[i]&tmpmask);
 	  printf("Combining %02x (%d) | %02x (%d)\n", ((encoded_source[i]&tmpmask)<<(ed->LZWmin-ed->current_bit)), bits_to_use, ed->code, ed->LZWmin-bits_to_use);
+#endif
 	  ed->code=((encoded_source[i]&tmpmask)<<(ed->LZWmin-ed->current_bit))|ed->code;
 	}else{
 	  //ed->code=(rawbyte&mask);
+#ifdef DEBUG
 	  printf("\e[1;32mCode Straddles Data Chunks! Missing %d bits\e[0m\n\n", ed->current_bit);
+#endif
 	  ed->straddling_bits = ed->current_bit;
 	  ed->current_bit=0;
 	  break;
 	}
-#ifdef DEBUG
-	printf("Current bit: %02x\n", ed->current_bit);
-	//printf("Boundary Byte: %02x | %02x\n", ((encoded_source[i]&tmpmask)<<(ed->LZWmin-ed->current_bit)), (rawbyte&mask));
-	printf("Pre shift raw byte: 0x%02x\n", encoded_source[i]);
-#endif
+
 	rawbyte=encoded_source[i]>>ed->current_bit;
 #ifdef DEBUG
 	printf("preemptive rawbyte 0x%02x\n", rawbyte);
+	printf("Current bit: %02x\n", ed->current_bit);
+	//printf("Boundary Byte: %02x | %02x\n", ((encoded_source[i]&tmpmask)<<(ed->LZWmin-ed->current_bit)), (rawbyte&mask));
+	printf("Pre shift raw byte: 0x%02x\n", encoded_source[i]);
 #endif
       }else{
 	ed->current_bit+=ed->LZWmin;
@@ -148,8 +161,7 @@ int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_le
 	ed->output_index_position+=ed->codes[ed->code].length;
 #ifdef DEBUG
 	printf("Index Stream: \e[1;32m");
-	int j;
-	for(j=0;j<ed->codes[ed->code].length; j++)printf("%d ", ed->codes[ed->code].data[j]);
+	for(int j=0;j<ed->codes[ed->code].length; j++)printf("%d ", ed->codes[ed->code].data[j]);
 	printf("\e[0m\n");
 #endif
       }
