@@ -170,7 +170,9 @@ int main(int argc, char* argv[]){
       initialize_lzwdecoder(&ed, LZW_dict_init_size, d->width*d->height);
       uint8_t *beginning_of_image = p; 
       while(*p!=0){
-	lzwDecode(&ed, p+1, *p);
+	printf("\n\e[1;34m****NEXT CALL %d BYTES****\e[0m\n\n", *p);
+	int result = lzwDecode(&ed, p+1, *p);
+	if(result<0){printf("Error Decoding image data, Terminating scaling operation\n"); return -1;}
 	p+=(*p)+1;
 	//printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));
       }

@@ -38,7 +38,6 @@ void initialize_lzwdecoder(LZWEncoderData *ed, int color_list_size, int decode_b
 }
 
 int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_length){
-  printf("\n****NEXT CALL %d BYTES****\n\n", encoded_source_length);
   if(encoded_source_length<1) return -2;
   uint8_t rawbyte;
   for(int i=0; i<encoded_source_length; i++){
@@ -154,7 +153,7 @@ int lzwDecode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_le
       }else ed->last_code=-1;
       if(ed->code!=ed->end_code_number&&ed->code!=ed->clear_code_number){
 	if(ed->code>=ed->number_of_codes){
-	  printf("\e[1;32mEncountered Invalid Code. Terminating Decode.\e[0m\n");
+	  printf("\e[1;31mEncountered Invalid Code. Terminating Decode.\e[0m\n");
 	  return -2;
         }
 	memcpy(ed->output_indexes+ed->output_index_position,ed->codes[ed->code].data,ed->codes[ed->code].length);
