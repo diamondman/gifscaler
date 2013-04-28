@@ -3,20 +3,21 @@
 CC = gcc
 LFLAGS = -lm
 CFLAGS = -g -std=c99
+DBG = -DDEBUG=1
 
 all: 
-	$(CC) $(CFLAGS) -o giffixer src/linkedlist.c src/lzwdecoder.c src/main.c $(LFLAGS)
-	$(CC) $(CFLAGS) -o encoder src/linkedlist.c src/lzwencoder.c $(LFLAGS)
-	$(CC) $(CFLAGS) -o decoder src/lzwdecoder.c src/lzwdecodertest.c $(LFLAGS)
+	$(CC) $(CFLAGS) -o bin/giffixer src/linkedlist.c src/lzw_decoder.c src/gif_decoder.c src/main.c $(LFLAGS)
+	$(CC) $(CFLAGS) -o bin/encoder src/linkedlist.c src/lzw_encoder.c src/test_lzw_encoder.c $(LFLAGS)
+	$(CC) $(CFLAGS) -o bin/decoder src/lzw_decoder.c src/test_lzw_decoder.c $(LFLAGS)
 
 debug:
-	$(CC) $(CFLAGS) -DDEBUG=1 -o giffixer src/linkedlist.c src/lzwdecoder.c src/main.c $(LFLAGS)
-	$(CC) $(CFLAGS) -DDEBUG=1 -o encoder src/linkedlist.c src/lzwencoder.c $(LFLAGS)
-	$(CC) $(CFLAGS) -DDEBUG=1 -o decoder src/lzwdecoder.c src/lzwdecodertest.c $(LFLAGS)
+	$(CC) $(CFLAGS) $(DBG) -o bin/giffixer src/linkedlist.c src/lzw_decoder.c src/gif_decoder.c src/main.c $(LFLAGS)
+	$(CC) $(CFLAGS) $(DBG) -o bin/encoder src/linkedlist.c src/lzw_encoder.c src/test_lzw_encoder.c $(LFLAGS)
+	$(CC) $(CFLAGS) $(DBG) -o bin/decoder src/lzw_decoder.c src/test_lzw_decoder.c $(LFLAGS)
 
 memcheck:
 	make debug
-	valgrind --tool=memcheck --leak-check=yes -v ./decoder
+	valgrind --tool=memcheck --leak-check=yes -v ./src/decoder
 
 clean:
-	$(RM) giffixer encoder decoder
+	$(RM) src/giffixer src/encoder src/decoder

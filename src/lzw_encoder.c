@@ -4,37 +4,9 @@
 #include <string.h>
 #include <math.h>
 #include "linkedlist.h"
+#include "lzw.h"
 
 //#define DEBUG 1
-
-typedef struct LZWTreeEntry_t{
-  int count;
-  uint8_t data;
-  uint16_t code_number;
-  struct LinkedList *children;
-  int level;
-} LZWTreeEntry;
-
-typedef struct LZWDecoderData_t{
-  int clear_code_number;
-  int end_code_number;
-  
-  int bits_used;
-  uint32_t tmpcodebyte;
-  uint8_t *output;
-  int output_active_length;
-  int output_size;
-
-  LinkedList dictionary;
-  uint16_t next_rule_id;
-
-  int LZWmin;
-  int start_index;
-  int resolved_indexes;
-  LinkedList *dictionary_branch;
-  LZWTreeEntry *last_matched_rule;
-  int initial_dictionary_size;
-}LZWDecoderData;
 
 uint16_t reset_rules(LZWDecoderData *ld){
   uint16_t next_rule_id;
@@ -91,7 +63,7 @@ void freeRuleDictionary(LinkedList *dictionary){
   disposeLinkedList(dictionary);
 }
 
-void initialize_encoder(LZWDecoderData *ld, int initial_lzw_dictionary_size){
+void lzw_encode_initialize(LZWDecoderData *ld, int initial_lzw_dictionary_size){
   int input_length = 100;
   memset(ld,0,sizeof(LZWDecoderData));
   ld->initial_dictionary_size = initial_lzw_dictionary_size;
@@ -109,7 +81,7 @@ void initialize_encoder(LZWDecoderData *ld, int initial_lzw_dictionary_size){
   ld->last_matched_rule = NULL;
 }
 
-void lzwEncode(LZWDecoderData *ld, uint8_t *input, int input_length){
+void lzw_encode(LZWDecoderData *ld, uint8_t *input, int input_length){
   outputCode(ld, ld->clear_code_number);
   for(uint8_t end_index=1; end_index<=input_length; end_index++){
     #ifdef DEBUG
@@ -198,19 +170,6 @@ void lzwEncode(LZWDecoderData *ld, uint8_t *input, int input_length){
   outputCode(ld, ld->end_code_number);
 }
 
-int main(int argc, char* argv[]){
-  int input_length = 100;
-  uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
-  int color_list_size = 4;
-
-  LZWDecoderData ld;
-  initialize_encoder(&ld, color_list_size);
-  lzwEncode(&ld, input, input_length);
-  freeRuleDictionary(&ld.dictionary);
-
-  for(int m=0; m<ld.output_active_length; m++) printf("%02x ", ld.output[m]); printf("\n");
-
-  free(ld.output);
-  return 0;
+void lzw_encode_free(LZWDecoderData *ld){
+  freeRuleDictionary(&(ld->dictionary));
 }
-
