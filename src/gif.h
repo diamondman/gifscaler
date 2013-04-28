@@ -60,4 +60,8 @@ typedef struct Gif_t{
 
 int gif_load(Gif *g, uint8_t *p);
 void gif_free(Gif *g);
+
+//UTILS
+void printColorTable(uint16_t size, uint32_t *color_table);
+void printGifData(Gif g);
 #endif
