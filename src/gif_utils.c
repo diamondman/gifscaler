@@ -76,6 +76,11 @@ void printGifData(Gif g){
 
       printf("Decoded Image Data: ");
       printf("%d bytes\n", d->width*d->height);
+      if(d->has_lct){
+	for(int j=0;j<d->width*d->height; j++)printf("%06x ", d->color_table[d->image_color_index_data[j]]); printf("\n");
+      }else{
+	for(int j=0;j<d->width*d->height; j++)printf("%06x ", g.color_table[d->image_color_index_data[j]]); printf("\n");
+      }
       //for(int j=0;j<d->width*d->height; j++)printf("%d ", d->image_color_index_data[j]); printf("\n");
 
       printf("Number of Extensions: %d\n", (int)extensions->length);

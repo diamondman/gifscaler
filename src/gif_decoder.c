@@ -24,6 +24,8 @@ int gif_load(Gif *g, uint8_t *p){
   LinkedList *extensions = (LinkedList *)malloc(sizeof(LinkedList));
   memset(extensions, 0, sizeof(LinkedList));
 
+  memcpy(g->version, p, 6);
+
   //Extract Main Gif Header
   p+=6;
   g->width = (uint16_t)(*(p+1)<<8 | *p);
@@ -142,6 +144,8 @@ int gif_load(Gif *g, uint8_t *p){
   if(*p!=GIF_TRAILER){
     printf("At Missing Trailer: %02x->%02x->%02x\n",*(p-1),*p,*(p+1));
     printf("Extra Data found at end of Gif. Expected 0x3B\n");
+  }else{
+    printf("All Bytes Processed and Accounted for.\n");
   }
   return 0;
 }
