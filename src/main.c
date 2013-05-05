@@ -2,30 +2,37 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include "main.h"rubber man
+#include <sys/stat.h>
 #include "gif.h"
 
 uint8_t* loadFile(char *path, uint32_t* data_copied){
-  printf("File: %s\n",path);
-  FILE *fp = fopen(path, "r");
+  struct stat buf;
+  FILE *fp;
   uint8_t *buffer;
 
-  if(fp == NULL){
-    printf("Error Opening Image!\n");
-    *data_copied = -2;
-    return buffer;
+  if(stat(path, &buf) < 0){
+    printf("FILE DOESN'T EXIST!\n");
+    *data_copied = -1;
+    return 0;
   }
-  if(fseek(fp, 0L, SEEK_END)!=0){
-    printf("Error Seeking In File!\n");
+  if(!S_ISREG(buf.st_mode)){
+   printf("Please Specify a file, not a directory/block device/etc.\n");
+   *data_copied = -2;
+   return 0;
+  }
+  if((fp = fopen(path, "r")) == NULL){
+    printf("Error Opening Image!\n");
     *data_copied = -3;
-    return buffer;
+    return 0;
+  }
+  if(buf.st_size > 0x80000000){
+    printf("Provided file too big! Max Size 2GB.\n");
+    *data_copied = -4;
+    return 0;
   }
 
-  long filesize = ftell(fp);
-  fseek(fp, 0L, SEEK_SET);
-  printf("File Size: %lu bytes\n",filesize);
-  buffer = (uint8_t*)malloc(filesize);
-  size_t returnedlength = fread(buffer, sizeof(char), filesize, fp);
+  buffer = (uint8_t*)malloc(buf.st_size);
+  *data_copied = fread(buffer, sizeof(char), buf.st_size, fp);
 
   fclose(fp);
   return buffer;
@@ -36,16 +43,12 @@ int main(int argc, char* argv[]){
 
   Gif g;
   memset(&g, 0, sizeof(Gif));
-  uint32_t data_copied = 0;
-  uint8_t *source_data = loadFile(argv[1], &data_copied);;
-  uint8_t *p = source_data;
-  if(data_copied<0) return data_copied;
+  int32_t data_copied = 0;
+  int8_t *source = loadFile(argv[1], &data_copied);
+  if(data_copied<0) return (int)data_copied;
 
-  gif_load(&g, p);
-  free(source_data);
-
-  printGifData(g);
-
+  gif_load(&g, source);
+  free(source);
+  gif_printImageData(&g);
   gif_free(&g);
 }
-

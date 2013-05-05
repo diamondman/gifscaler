@@ -2,7 +2,7 @@
 #include "gif.h"
 #include "linkedlist.h"
 
-void printColorTable(uint16_t size, uint32_t *color_table){
+void gif_printColorTable(uint16_t size, uint32_t *color_table){
   printf("COLOR TABLE VALUES");
   for(int i=0; i<size; i++){
     if(i%29==0){
@@ -15,40 +15,40 @@ void printColorTable(uint16_t size, uint32_t *color_table){
   printf("\n\n");
 }
 
-void printGifData(Gif g){
+void gif_printImageData(Gif *g){
+  //Gif *g = &g2;
   //printf("\nThe file format is: %s\n", g.version);
   printf("Logical Screen Descriptor\n");
-  printf("WIDTH:    %d (0x%04x)\n", g.width, g.width);
-  printf("HEIGHT:   %d (0x%04x)\n", g.height, g.height);
-  printf("has_gct:  %d (0x%02x)\n", g.has_gct, g.has_gct);
-  printf("c_res:    %d (0x%02x)\n", g.color_resolution, g.color_resolution);
-  printf("c_sorted: %d (0x%02x)\n", g.colors_sorted, g.colors_sorted);
-  printf("gct_size: %d (0x%02x)\n", g.gct_size, g.gct_size);
-  printf("BGCOLOR:  %d (0x%02x)\n", g.bgcolor, g.bgcolor);
-  printf("ARATIO:   %d (0x%02x)\n", g.aspect_ratio, g.aspect_ratio);
+  printf("WIDTH:    %d (0x%04x)\n", g->width, g->width);
+  printf("HEIGHT:   %d (0x%04x)\n", g->height, g->height);
+  printf("has_gct:  %d (0x%02x)\n", g->has_gct, g->has_gct);
+  printf("c_res:    %d (0x%02x)\n", g->color_resolution, g->color_resolution);
+  printf("c_sorted: %d (0x%02x)\n", g->colors_sorted, g->colors_sorted);
+  printf("gct_size: %d (0x%02x)\n", g->gct_size, g->gct_size);
+  printf("BGCOLOR:  %d (0x%02x)\n", g->bgcolor, g->bgcolor);
+  printf("ARATIO:   %d (0x%02x)\n", g->aspect_ratio, g->aspect_ratio);
 
-  if(g.has_gct)//{
+  if(g->has_gct)
     //printf("\nGLOBAL COLOR TABLE FOUND\n");
-    printColorTable(g.gct_size, g.color_table);
-    //}
+    gif_printColorTable(g->gct_size, g->color_table);
 
-  if(g.ext_count){
-    //printf("FOUND %d EXTENSION(S)\n\n", g.ext_count);
+  if(g->ext_count){
+    //printf("FOUND %d EXTENSION(S)\n\n", g->ext_count);
   }else{
     printf("NO EXTENSIONS FOUND\n\n");
   }
 
-  printf("Number of Images: %d\n", g.image_count);
-  if(g.image_descriptor_linked_list.length>0){
-    LinkedListItem *item = g.image_descriptor_linked_list.first;
+  printf("Number of Images: %d\n", g->image_count);
+  if(g->image_descriptor_linked_list.length>0){
+    LinkedListItem *item = g->image_descriptor_linked_list.first;
     LinkedListItem *nextitem;
 
     int i = 0;
     do{
       nextitem = item->next;
       GifImageDescriptor *d = (GifImageDescriptor*)item->data;
-      printf("\nImage %d/%d\n", i+1, g.image_count);
-      //GifImageDescriptor *d = g.image_descriptor_linked_list[i];
+
+      printf("\nImage %d/%d\n", i+1, g->image_count);
       printf("LEFT:       %d (0x%04x)\n", d->left, d->left);
       printf("TOP:        %d (0x%04x)\n", d->top, d->top);
       printf("WIDTH:      %d (0x%02x)\n", d->width, d->width);
@@ -57,8 +57,8 @@ void printGifData(Gif g){
       printf("interlaced: %d (0x%02x)\n", d->interlaced, d->interlaced);
       printf("SORT:       %d (0x%02x)\n", d->sort, d->sort);
       printf("LCT_SIZE:   %d (0x%02x)\n", d->lct_size, d->lct_size);
-      if(d->has_lct) 
-	printColorTable(d->lct_size, d->color_table);
+
+      if(d->has_lct) gif_printColorTable(d->lct_size, d->color_table);
       LinkedList *extensions = (LinkedList *)d->extensions;
       printf("ImageData: %d bytes\n", d->image_data_size);      
       uint8_t *p = d->image_data;
@@ -79,9 +79,8 @@ void printGifData(Gif g){
       if(d->has_lct){
 	for(int j=0;j<d->width*d->height; j++)printf("%06x ", d->color_table[d->image_color_index_data[j]]); printf("\n");
       }else{
-	for(int j=0;j<d->width*d->height; j++)printf("%06x ", g.color_table[d->image_color_index_data[j]]); printf("\n");
+	for(int j=0;j<d->width*d->height; j++)printf("%06x ", g->color_table[d->image_color_index_data[j]]); printf("\n");
       }
-      //for(int j=0;j<d->width*d->height; j++)printf("%d ", d->image_color_index_data[j]); printf("\n");
 
       printf("Number of Extensions: %d\n", (int)extensions->length);
       if(extensions->length>0){

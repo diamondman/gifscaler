@@ -15,9 +15,11 @@ debug:
 	$(CC) $(CFLAGS) $(DBG) -o bin/encoder src/linkedlist.c src/lzw_encoder.c src/test_lzw_encoder.c $(LFLAGS)
 	$(CC) $(CFLAGS) $(DBG) -o bin/decoder src/lzw_decoder.c src/test_lzw_decoder.c $(LFLAGS)
 
-memcheck:
-	make debug
-	valgrind --tool=memcheck --leak-check=yes -v ./src/decoder
+test: debug
+	./bin/giffixer samples/grad.gif
+
+memcheck: debug
+	valgrind --tool=memcheck --leak-check=yes -v ./src/giffixer samples/grad.gif
 
 clean:
 	$(RM) src/giffixer src/encoder src/decoder
