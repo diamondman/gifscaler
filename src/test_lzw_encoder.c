@@ -1,8 +1,7 @@
-#include "lzw.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-
+#include "lzw.h"
 
 int main(int argc, char* argv[]){
   int input_length = 100;
@@ -19,4 +18,3 @@ int main(int argc, char* argv[]){
   free(ld.output);
   return 0;
 }
-

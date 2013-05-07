@@ -46,13 +46,13 @@ void lzw_decode_initialize(LZWEncoderData *ed, int color_list_size, int decode_b
   reset_code_list(ed);
 }
 
-int lzw_decode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_length){
+int lzw_decode(LZWEncoderData *ed, uint8_t *source, int source_length){
   if(ed->finished) return -1;
-  if(encoded_source_length<1) return -2;
+  if(source_length<1) return -2;
   
   uint8_t rawbyte;
-  for(int byteindex=0; byteindex<encoded_source_length; byteindex++){
-    rawbyte = encoded_source[byteindex];
+  for(int byteindex=0; byteindex<source_length; byteindex++){
+    rawbyte = source[byteindex];
     ed->current_bit=0;
 #ifdef DEBUG
     printf("\e[1;34mraw byte: 0x%02x\e[0m\n", rawbyte);
@@ -67,7 +67,7 @@ int lzw_decode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_l
       int code_length = ed->LZWmin;
 
       int masklength = (code_length-ed->current_code_length)>(8-ed->current_bit)?(8-ed->current_bit):(code_length-ed->current_code_length);
-      int mask = ((int)pow(2, masklength))-1;
+      int mask = (2 << (masklength-1)) -1;
       int code_piece = (rawbyte & mask) << ed->current_code_length;
 #ifdef DEBUG
       printf("Piece: %02x (%d bits)\n", code_piece, masklength);

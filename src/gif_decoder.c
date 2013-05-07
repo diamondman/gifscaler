@@ -3,9 +3,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 #include "linkedlist.h"
 #include "lzw.h"
+
+#define littleend_16(p) (p<<8 | p)
+#define GET_WIDTH(p)  (uint16_t)(p[7]<<8 | p[6])
+#define GET_HEIGHT(p) (uint16_t)(p[9]<<8 | p[8])
+#define GET_HAS_GCT(p) (p[10]&128)==128
+#define GET_COLOR_RESOLUTION(p) ((p[10]&0b01110000)>>4)+1
+#define GET_GCT_SIZE(p) (GET_HAS_GCT(p)?2<<(p[10]&7):0)
 
 uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data){
   uint32_t *color_table = (uint32_t*)malloc(table_size*3*sizeof(uint32_t));
@@ -17,7 +23,7 @@ uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_dat
   return color_table;
 }
 
-int gif_load(Gif *g, uint8_t *p){
+int gif_load(Gif *g, uint8_t *p, uint32_t p_length){
   LinkedList *images = &(g->image_descriptor_linked_list);
   images->length=0;
 
@@ -27,28 +33,21 @@ int gif_load(Gif *g, uint8_t *p){
   memcpy(g->version, p, 6);
 
   //Extract Main Gif Header
-  p+=6;
-  g->width = (uint16_t)(*(p+1)<<8 | *p);
-  p+=2;
-  g->height = (uint16_t)(*(p+1)<<8 | *p);
-  p+=2;
-  int gct = (uint8_t)*p;
-  g->has_gct = (gct&128)==128;
-  g->color_resolution = ((gct&0b01110000)>>4)+1;
-  g->colors_sorted = gct&8;
-  g->gct_size = g->has_gct?pow(2.0, (float)((gct&0b111)+1)):0;
-  p+=1;
-  g->bgcolor = (uint8_t)(*p);
-  p+=1;
-  g->aspect_ratio = (uint8_t)(*p);
-  p+=1;
+  g->width = GET_WIDTH(p);
+  g->height = GET_HEIGHT(p);
+  g->has_gct = GET_HAS_GCT(p);
+  g->color_resolution = GET_COLOR_RESOLUTION(p);
+  g->colors_sorted = p[10]&8==8;
+  g->gct_size = GET_GCT_SIZE(p);
+  g->bgcolor = p[11];
+  g->aspect_ratio = p[12];
   g->ext_count = 0;
   g->image_count = 0;  
 
   //Get Global Color Table if it exists
   int deltap = 0;
-  g->color_table = g->has_gct?extract_color_table(p, g->gct_size, &deltap):0;
-  p+=deltap;
+  g->color_table = g->has_gct?extract_color_table(&p[13], g->gct_size, &deltap):0;
+  p+=13+deltap;
 
   //Image and Extension check
   uint8_t *pbackup = p;
@@ -99,7 +98,7 @@ int gif_load(Gif *g, uint8_t *p){
       d->has_lct = (tmp&128)>0;
       d->interlaced = (tmp&64)>0;
       d->sort = (tmp&32)>0;
-      d->lct_size = (d->has_lct)?pow(2.0, (float)((tmp&0b111)+1)):0;
+      d->lct_size = (d->has_lct)?2<<(tmp&0b111):0;
 
       int deltap = 0;
       d->color_table = d->has_lct?extract_color_table(p, d->lct_size, &deltap):0;
@@ -109,7 +108,7 @@ int gif_load(Gif *g, uint8_t *p){
       d->LZW = *p;
       p+=1;
       
-      uint32_t LZW_dict_init_size = pow(2.0, (float)d->LZW);
+      uint32_t LZW_dict_init_size = 2<<(d->LZW-1);
       memset(&ed, 0, sizeof(LZWEncoderData));
       printf("Init Dict Size: %d\n", LZW_dict_init_size);
       lzw_decode_initialize(&ed, LZW_dict_init_size, d->width*d->height);

@@ -58,7 +58,7 @@ typedef struct Gif_t{
   LinkedList *trailing_extensions;
 } Gif;
 
-int gif_load(Gif *g, uint8_t *p);
+int gif_load(Gif *g, uint8_t *p, uint32_t p_length);
 void gif_free(Gif *g);
 
 //UTILS

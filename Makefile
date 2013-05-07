@@ -22,4 +22,4 @@ memcheck: debug
 	valgrind --tool=memcheck --leak-check=yes -v ./src/giffixer samples/grad.gif
 
 clean:
-	$(RM) src/giffixer src/encoder src/decoder
+	rm bin/giffixer bin/encoder bin/decoder

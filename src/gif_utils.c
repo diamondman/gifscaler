@@ -93,7 +93,7 @@ void gif_printImageData(Gif *g){
 	  GifExtHeader *exth = (GifExtHeader *)item->data;
 	  printf("  Header %d/%d: ", i+1, (int)extensions->length);
 	  switch(exth->type){
-	  case 0xF9: //EXT_GCE_MARKER:
+	  case EXT_GCE_MARKER:
 	    printf("GCE Header.\n");
 	    printf("    Disposal Method:   %d\n", (*(exth->data+1)&0b11100)>>2);
             printf("    User Input Flag:   %d\n", (*(exth->data+1)&0b10)>0);
@@ -101,14 +101,14 @@ void gif_printImageData(Gif *g){
 	    printf("    Delay Time:        %d\n", (uint16_t)(*(exth->data+3)<<8 | *(exth->data+1)));
 	    printf("    Transparent Index: %x\n", *(exth->data+4));
 	    break;
-	  case 0x01: //EXT_TEXT_MARKER:
+	  case EXT_TEXT_MARKER:
 	    printf("TEXT Header.\n");
 	    printf("    (\"%s\")", exth->data+1);
 	    break;
-	  case 0xff: //EXT_APP_MARKER:
+	  case EXT_APP_MARKER:
 	    printf("APP Header.");
 	    break;
-	  case 0xFE: //EXT_COMMENT_MARKER:
+	  case EXT_COMMENT_MARKER:
 	    printf("COMMENT Header.\n");
     	    printf("    (\"%s\")", exth->data+1);
 	    break;

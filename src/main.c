@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
   int8_t *source = loadFile(argv[1], &data_copied);
   if(data_copied<0) return (int)data_copied;
 
-  gif_load(&g, source);
+  gif_load(&g, source, data_copied);
   free(source);
   gif_printImageData(&g);
   gif_free(&g);
