@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include "linkedlist.h"
 
-#ifndef LZW_STRUCTS
-#define LZW_STRUCTS
+#ifndef LZW_STRUCTS_AND_FUNCTIONS
+#define LZW_STRUCTS_AND_FUNCTIONS
 typedef struct LZWDecoderEntry_t{
   int length;
   uint8_t *data;
@@ -28,8 +28,6 @@ typedef struct LZWEncoderData_t{
   int code_subsection_count;
   int reset_codes;
 } LZWEncoderData;
-
-
 
 
 typedef struct LZWTreeEntry_t{
@@ -60,10 +58,8 @@ typedef struct LZWDecoderData_t{
   LZWTreeEntry *last_matched_rule;
   int initial_dictionary_size;
 }LZWDecoderData;
-#endif
 
-#ifndef LZW_FUNCTIONS
-#define LZW_FUNCTIONS
+
 void lzw_decode_initialize(LZWEncoderData *ed, int color_list_size, int decode_buffer_start_size);
 int  lzw_decode(LZWEncoderData *ed, uint8_t *encoded_source, int encoded_source_length);
 void lzw_decode_free(LZWEncoderData *ed, uint8_t free_result);

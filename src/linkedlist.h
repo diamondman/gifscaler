@@ -1,9 +1,11 @@
 #ifndef LINKEDLIST_STRUCTS
 #define LINKEDLIST_STRUCTS
-typedef struct LinkedListItem_t{
+
+typedef struct LinkedListItem_t LinkedListItem;
+struct LinkedListItem_t{
   void* data;
-  struct LinkedListItem_t* next;
-} LinkedListItem;
+  LinkedListItem* next;
+};
 
 typedef struct LinkedList_t{
   LinkedListItem *first;

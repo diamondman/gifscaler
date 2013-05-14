@@ -49,6 +49,6 @@ int main(int argc, char* argv[]){
 
   int loadres = gif_load(&g, source, data_copied);
   free(source);
-  if (loadres>0) gif_printImageData(&g);
+  if (loadres>=0) gif_printImageData(&g);
   gif_free(&g);
 }

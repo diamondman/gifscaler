@@ -38,6 +38,7 @@ typedef struct GifImageDescriptor_t{
 
 typedef struct Gif_t Gif;
 struct Gif_t {
+  Gif* asd;
   char version[7];
   //Logical Screen Descriptor
   uint16_t width;
