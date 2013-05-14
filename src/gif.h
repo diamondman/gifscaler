@@ -36,7 +36,8 @@ typedef struct GifImageDescriptor_t{
   uint8_t *image_color_index_data;
 } GifImageDescriptor;
 
-typedef struct Gif_t{
+typedef struct Gif_t Gif;
+struct Gif_t {
   char version[7];
   //Logical Screen Descriptor
   uint16_t width;
@@ -56,7 +57,7 @@ typedef struct Gif_t{
   uint32_t image_count;
   LinkedList image_descriptor_linked_list;
   LinkedList *trailing_extensions;
-} Gif;
+};
 
 int gif_load(Gif *g, uint8_t *p, uint32_t p_length);
 void gif_free(Gif *g);

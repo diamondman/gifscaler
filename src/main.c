@@ -13,22 +13,22 @@ uint8_t* loadFile(char *path, uint32_t* data_copied){
   if(stat(path, &buf) < 0){
     printf("FILE DOESN'T EXIST!\n");
     *data_copied = -1;
-    return 0;
+    return NULL;
   }
   if(!S_ISREG(buf.st_mode)){
    printf("Please Specify a file, not a directory/block device/etc.\n");
    *data_copied = -2;
-   return 0;
+   return NULL;
   }
   if((fp = fopen(path, "r")) == NULL){
     printf("Error Opening Image!\n");
     *data_copied = -3;
-    return 0;
+    return NULL;
   }
   if(buf.st_size > 0x80000000){
     printf("Provided file too big! Max Size 2GB.\n");
     *data_copied = -4;
-    return 0;
+    return NULL;
   }
 
   buffer = (uint8_t*)malloc(buf.st_size);
@@ -45,10 +45,10 @@ int main(int argc, char* argv[]){
   memset(&g, 0, sizeof(Gif));
   int32_t data_copied = 0;
   int8_t *source = loadFile(argv[1], &data_copied);
-  if(data_copied<0) return (int)data_copied;
+  if(source==NULL) return -1;
 
-  gif_load(&g, source, data_copied);
+  int loadres = gif_load(&g, source, data_copied);
   free(source);
-  gif_printImageData(&g);
+  if (loadres>0) gif_printImageData(&g);
   gif_free(&g);
 }
