@@ -1,5 +1,5 @@
-#ifndef LINKEDLIST_STRUCTS
-#define LINKEDLIST_STRUCTS
+#ifndef LINKEDLIST
+#define LINKEDLIST
 
 typedef struct LinkedListItem_t LinkedListItem;
 struct LinkedListItem_t{
@@ -12,10 +12,7 @@ typedef struct LinkedList_t{
   LinkedListItem *last;
   long length;
 }LinkedList;
-#endif
 
-#ifndef LINKEDLIST_FUNCTIONS
-#define LINKEDLIST_FUNCTIONS
 void addLinkedListItem(LinkedList *list, LinkedListItem *item);
 LinkedListItem* addNewLinkedListItem(LinkedList *list);
 void disposeLinkedList(LinkedList *list);

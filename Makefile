@@ -19,7 +19,7 @@ test: debug
 	./bin/giffixer samples/grad.gif
 
 memcheck: debug
-	valgrind --tool=memcheck --leak-check=yes -v ./src/giffixer samples/grad.gif
+	valgrind --tool=memcheck --leak-check=yes -v ./bin/giffixer samples/grad.gif
 
 clean:
 	rm bin/giffixer bin/encoder bin/decoder

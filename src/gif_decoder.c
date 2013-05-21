@@ -10,14 +10,14 @@
 #define GIF89A_MAGIC "GIF89a"
 #define COLORRESOLUTION_MASK 0x70 //0b01110000
 #define CT_MASK 128
-#define GCTSIZE_MASK 7
+#define CTSIZE_MASK 7
 
 #define FLAGS(field, flags) ((field & flags)==flags)
 #define U16LTOU16(p) ((uint16_t)((*(p+1))<<8 | *p))
 #define U24LTOU24(p) ((*p<<16) | (*(p+1)<<8) | *(p+2))
 #define HAS_GCT(p) FLAGS(p[10], CT_MASK)
 #define COLOR_RESOLUTION(p) ((p[10] & COLORRESOLUTION_MASK)>>4)+1
-#define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & GCTSIZE_MASK) : 0)
+#define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
 
 uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data){
   uint32_t *color_table = (uint32_t*)malloc(table_size*3*sizeof(uint32_t));
@@ -38,7 +38,7 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
   memset(extensions, 0, sizeof(LinkedList));
 
   memcpy(gif->version, p, 6);
-  if(strcmp(gif->version, GIF87A_MAGIC)!=0&&strcmp(gif->version, GIF89A_MAGIC)!=0){
+  if(strcmp(gif->version, GIF87A_MAGIC)!=0 && strcmp(gif->version, GIF89A_MAGIC)!=0){
     printf("The file header does not appear to be a gif imagheader: mismatched magic number.\n");
     return -2;
   }
@@ -56,8 +56,8 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
   gif->image_count = 0;
 
   //Get Global Color Table if it exists
-  printf("Size: %d; ctablesize: %d\n\n", p_length, (gif->has_gct?gif->gct_size*3:0));
-  if(p_length<=13+(gif->has_gct?gif->gct_size*3:0)){ 
+  printf("Size: %d; ctablesize: %d\n\n", p_length, gif->gct_size*3);
+  if(p_length<=13+(gif->gct_size*3)){ 
     printf("File Corrupt. Not enough data for requested Global Color Table.\n");
     return -1;
   }
@@ -107,19 +107,16 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       d->height = U16LTOU16(&p[6]);
 
       int tmp = (uint8_t)p[8];
-      d->has_lct = (tmp & CT_MASK)>0;
+      d->has_lct = FLAGS(tmp,CT_MASK);
       d->interlaced = FLAGS(tmp, 64);
       d->sort = FLAGS(tmp, 32);
-      d->lct_size = (d->has_lct)?(2<<(tmp & 7)):0;
-
-      p+=8;
+      d->lct_size = (d->has_lct) ? (2<<(tmp & CTSIZE_MASK)) : 0;
 
       int deltap = 0;
-      d->color_table = d->has_lct?extract_color_table(p, d->lct_size, &deltap):0;
-      p+=deltap;
+      d->color_table = d->has_lct ? extract_color_table(&p[9], d->lct_size, &deltap) : 0;
+      p+=8+deltap+1;
             
-      p+=1;
-      d->LZW = *p;
+      d->LZW = p[0];
       p+=1;
       
       uint32_t LZW_dict_init_size = 2<<(d->LZW-1);
@@ -139,11 +136,10 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       d->image_color_index_data = ed.output_indexes;
       lzw_decode_free(&ed, 0);
 
-      int image_data_size = p-beginning_of_image;
+      int image_data_size = (p-beginning_of_image)+1;
       d->image_data_size = image_data_size;
       d->image_data = (uint8_t *)malloc(image_data_size);
       memset(d->image_data, 0, d->image_data_size);
-      //p = beginning_of_image;
       memcpy(d->image_data, beginning_of_image, image_data_size);
 
       p+=1;
@@ -158,14 +154,12 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
     printf("At Missing Trailer: %02x->(%02x)->%02x\n",*(p-1),*p,*(p+1));
     printf("Extra Data found at end of Gif. Expected 0x3B\n");
     return -2;
-  }else{
-    printf("All Bytes Processed and Accounted for.\n");
-  }
+  }else printf("All Bytes Processed and Accounted for.\n");
   return 0;
 }
 
 void gif_free(Gif *gif){
-  LinkedList *images = &(gif->image_descriptor_linked_list);
+  LinkedList *images = &gif->image_descriptor_linked_list;
 
   if(images->length>0){
     LinkedListItem *item = images->first;
@@ -201,6 +195,5 @@ void gif_free(Gif *gif){
   free(gif->trailing_extensions);
   disposeLinkedList(images);
 
-  //free(g.image_descriptors);
   if(gif->has_gct) free(gif->color_table);
 }

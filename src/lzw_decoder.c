@@ -5,6 +5,8 @@
 #include <math.h>
 #include "lzw.h"
 
+#define DECODE_BUFFER_START_SIZE malloc(sizeof(uint8_t)*1024*1024)
+
 int process_code(LZWEncoderData *ed);
 
 void lzw_decode_free(LZWEncoderData *ed, uint8_t free_result){
@@ -17,13 +19,17 @@ void reset_code_list(LZWEncoderData *ed){
   printf("Resetting Code List!\n");
 #endif
   ed->last_code=-1;
-  for(int i=0; i<ed->number_of_codes; i++) free(ed->codes[i].data);
+  for(int i=0; i<ed->number_of_codes; i++){
+    free(ed->codes[i].data);
+    printf("Clearing %d/%d\n", i, ed->number_of_codes-1);
+  }
   ed->number_of_codes = 0;
   for(int i=0; i<ed->color_list_size; i++){
     ed->codes[i].length=1;
     ed->codes[i].data = malloc(sizeof(uint8_t)*ed->codes[i].length);
     ed->codes[i].data[0] = ed->number_of_codes;
     ed->number_of_codes++;
+    printf("Initializing %d/%d\n", i, ed->color_list_size-1);
   }
 
   ed->clear_code_number = ed->number_of_codes++;
@@ -41,7 +47,7 @@ void clear_codes(LZWEncoderData *ed){
 
 void lzw_decode_initialize(LZWEncoderData *ed, int color_list_size, int decode_buffer_start_size){
   memset(ed, 0, sizeof(LZWEncoderData));
-  ed->output_indexes = malloc(sizeof(uint8_t)*1024*1024);//decode_buffer_start_size);
+  ed->output_indexes = DECODE_BUFFER_START_SIZE;
   ed->color_list_size = color_list_size;
   reset_code_list(ed);
 }
@@ -59,13 +65,7 @@ int lzw_decode(LZWEncoderData *ed, uint8_t *source, int source_length){
 #endif
 
     while(ed->current_bit<8){
-      /*if(ed->reset_codes){
-	printf("Doing the actual reset\n");
-	clear_codes(ed);
-	reset_code_list(ed);
-      }*/
       int code_length = ed->LZWmin;
-
       int masklength = (code_length-ed->current_code_length)>(8-ed->current_bit)?(8-ed->current_bit):(code_length-ed->current_code_length);
       int mask = (2 << (masklength-1)) -1;
       int code_piece = (rawbyte & mask) << ed->current_code_length;
@@ -83,7 +83,7 @@ int lzw_decode(LZWEncoderData *ed, uint8_t *source, int source_length){
 	printf("\e[1;32mCODE: %d (%d bits) [%d section(s)]\e[0m\n", ed->code, ed->LZWmin, ed->code_subsection_count);
 #endif
 	if(ed->code==ed->end_code_number){ ed->finished = 1; break;}
-	if(process_code(ed)==-1){ return -3;}
+	if(process_code(ed)==-1) return -3;
 	
 	code_length = ed->LZWmin;
 	ed->code = 0;
@@ -122,7 +122,6 @@ int process_code(LZWEncoderData *ed){
     
     ed->LZWmin = (int)ceil(log2(ed->number_of_codes+1));
     if(ed->LZWmin==13) ed->LZWmin=12;
-    //if(ed->LZWmin==13) ed->reset_codes = 1;
   }else ed->last_code=-1;
   
   if(ed->code!=ed->end_code_number&&ed->code!=ed->clear_code_number){
