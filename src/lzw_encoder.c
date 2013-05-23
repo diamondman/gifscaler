@@ -8,7 +8,7 @@
 
 //#define DEBUG 1
 
-uint16_t reset_rules(LZWDecoderData *ld){
+uint16_t reset_rules(LZWEncoderData *ld){
   uint16_t next_rule_id;
   for(next_rule_id=0; next_rule_id < ld->initial_dictionary_size; next_rule_id++){
     LinkedListItem *dentry = addNewLinkedListItem(&ld->dictionary);
@@ -26,7 +26,7 @@ uint16_t reset_rules(LZWDecoderData *ld){
   return next_rule_id;
 }
 
-void outputCode(LZWDecoderData *ld, uint16_t code){
+void outputCode(LZWEncoderData *ld, uint16_t code){
   ld->tmpcodebyte|=(code<<ld->bits_used);
   ld->bits_used+=ld->LZWmin;
 
@@ -63,9 +63,9 @@ void freeRuleDictionary(LinkedList *dictionary){
   disposeLinkedList(dictionary);
 }
 
-void lzw_encode_initialize(LZWDecoderData *ld, int initial_lzw_dictionary_size){
+void lzw_encode_initialize(LZWEncoderData *ld, int initial_lzw_dictionary_size){
   int input_length = 100;
-  memset(ld,0,sizeof(LZWDecoderData));
+  memset(ld,0,sizeof(LZWEncoderData));
   ld->initial_dictionary_size = initial_lzw_dictionary_size;
   ld->output = malloc(sizeof(uint8_t)*input_length);
   ld->output_size=input_length;
@@ -81,7 +81,7 @@ void lzw_encode_initialize(LZWDecoderData *ld, int initial_lzw_dictionary_size){
   ld->last_matched_rule = NULL;
 }
 
-void lzw_encode(LZWDecoderData *ld, uint8_t *input, int input_length){
+void lzw_encode(LZWEncoderData *ld, uint8_t *input, int input_length){
   outputCode(ld, ld->clear_code_number);
   for(uint8_t end_index=1; end_index<=input_length; end_index++){
     #ifdef DEBUG
@@ -170,6 +170,6 @@ void lzw_encode(LZWDecoderData *ld, uint8_t *input, int input_length){
   outputCode(ld, ld->end_code_number);
 }
 
-void lzw_encode_free(LZWDecoderData *ld){
+void lzw_encode_free(LZWEncoderData *ld){
   freeRuleDictionary(&(ld->dictionary));
 }

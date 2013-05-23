@@ -17,7 +17,7 @@ int main(int argc, char* argv[]){
   int encoded_source_length_b = 11;
   uint8_t encoded_source_b[11] = {0xec, 0x95, 0xfa, 0xa8, 0xde, 0x60, 0x8c, 0x04, 0x91, 0x4c, 0x01};*/
 
-  LZWEncoderData ed;
+  LZWDecoderData ed;
   lzw_decode_initialize(&ed, 4, image_width*image_height);
 
   /*lzw_decode(&ed, encoded_source_a, encoded_source_length_a);

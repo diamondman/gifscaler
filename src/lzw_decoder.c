@@ -7,52 +7,59 @@
 
 #define DECODE_BUFFER_START_SIZE malloc(sizeof(uint8_t)*1024*1024)
 
-int process_code(LZWEncoderData *ed);
+int process_code(LZWDecoderData *ed);
 
-void lzw_decode_free(LZWEncoderData *ed, uint8_t free_result){
-  for(int i=0; i<ed->number_of_codes; i++) free(ed->codes[i].data);
+void lzw_decode_free(LZWDecoderData *ed, uint8_t free_result){
+  for(int i=0; i<ed->number_of_codes; i++){
+    printf("Clearing %d/%d\n", i, ed->number_of_codes-1);
+    free(ed->codes[i].data);
+  }
   if(free_result) free(ed->output_indexes);
 }
 
-void reset_code_list(LZWEncoderData *ed){
+void reset_code_list(LZWDecoderData *ed){
 #ifdef DEBUG
   printf("Resetting Code List!\n");
 #endif
+  printf("HAS BEEN CLEARED YET: %d\n", ed->has_been_cleared);
   ed->last_code=-1;
   for(int i=0; i<ed->number_of_codes; i++){
     free(ed->codes[i].data);
     printf("Clearing %d/%d\n", i, ed->number_of_codes-1);
   }
   ed->number_of_codes = 0;
-  for(int i=0; i<ed->color_list_size; i++){
+  for(int i=0; i<ed->initial_dictionary_size; i++){
     ed->codes[i].length=1;
     ed->codes[i].data = malloc(sizeof(uint8_t)*ed->codes[i].length);
     ed->codes[i].data[0] = ed->number_of_codes;
     ed->number_of_codes++;
-    printf("Initializing %d/%d\n", i, ed->color_list_size-1);
+    printf("Initializing %d/%d\n", i, ed->initial_dictionary_size+1);
   }
 
   ed->clear_code_number = ed->number_of_codes++;
+  printf("Initializing %d (CLEAR)\n", ed->clear_code_number);
   ed->end_code_number = ed->number_of_codes++;
+  printf("Initializing %d (END)\n", ed->end_code_number);
 
   ed->LZWmin = (int)ceil(log2(ed->number_of_codes));
+  //ed->has_been_cleared = 1;
 #ifdef DEBUG
   printf("New LZWmin after clear: %d\n", ed->LZWmin);
 #endif
 }
 
-void clear_codes(LZWEncoderData *ed){
+void clear_codes(LZWDecoderData *ed){
   memset(&ed->codes, 0, (4096)*sizeof(LZWDecoderEntry));
 }
 
-void lzw_decode_initialize(LZWEncoderData *ed, int color_list_size, int decode_buffer_start_size){
-  memset(ed, 0, sizeof(LZWEncoderData));
+void lzw_decode_initialize(LZWDecoderData *ed, int initial_dictionary_size, int decode_buffer_start_size){
+  memset(ed, 0, sizeof(LZWDecoderData));
   ed->output_indexes = DECODE_BUFFER_START_SIZE;
-  ed->color_list_size = color_list_size;
+  ed->initial_dictionary_size = initial_dictionary_size;
   reset_code_list(ed);
 }
 
-int lzw_decode(LZWEncoderData *ed, uint8_t *source, int source_length){
+int lzw_decode(LZWDecoderData *ed, uint8_t *source, int source_length){
   if(ed->finished) return -1;
   if(source_length<1) return -2;
   
@@ -94,13 +101,18 @@ int lzw_decode(LZWEncoderData *ed, uint8_t *source, int source_length){
   }
 }
 
-int process_code(LZWEncoderData *ed){
+int process_code(LZWDecoderData *ed){
   if(ed->last_code==-1 && ed->code!=ed->clear_code_number){
     ed->last_code=ed->code;
   }else if(ed->code==ed->clear_code_number){
     printf("Reset\n");
-    clear_codes(ed);
-    reset_code_list(ed);
+    if(ed->has_been_cleared){
+      clear_codes(ed);
+      reset_code_list(ed);
+    }else{
+      printf("Dictionary preinitialized: No need to clear it.");
+      ed->has_been_cleared = 1;
+    }
   }else if(ed->code!=ed->clear_code_number){
     uint8_t suffix;
     if(ed->code<ed->number_of_codes) suffix=ed->codes[ed->code].data[0];

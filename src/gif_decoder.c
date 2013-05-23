@@ -67,7 +67,7 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
 
   //Image and Extension check
   uint8_t *pbackup = p;
-  LZWEncoderData ed;
+  LZWDecoderData ed;
   while(*p==EXT_MARKER||*p==IMG_MARKER){
     if(*p==EXT_MARKER){
       gif->ext_count++;
@@ -120,7 +120,7 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       p+=1;
       
       uint32_t LZW_dict_init_size = 2<<(d->LZW-1);
-      memset(&ed, 0, sizeof(LZWEncoderData));
+      memset(&ed, 0, sizeof(LZWDecoderData));
       printf("Init Dict Size: %d\n", LZW_dict_init_size);
       lzw_decode_initialize(&ed, LZW_dict_init_size, d->width*d->height);
       uint8_t *beginning_of_image = p; 

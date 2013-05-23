@@ -8,7 +8,7 @@ int main(int argc, char* argv[]){
   uint8_t input[100] = {1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,2,2,2,1,1,1,0,0,0,0,2,2,2,2,2,2,0,0,0,0,1,1,1,2,2,2,0,0,0,0,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1,2,2,2,2,2,1,1,1,1,1};
   int color_list_size = 4;
 
-  LZWDecoderData ld;
+  LZWEncoderData ld;
   lzw_encode_initialize(&ld, color_list_size);
   lzw_encode(&ld, input, input_length);
   lzw_encode_free(&ld);
