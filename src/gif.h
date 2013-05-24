@@ -13,6 +13,20 @@
 #define EXT_APP_MARKER (uint8_t)0xFF
 #define EXT_COMMENT_MARKER (uint8_t)0xFE
 
+#define DECODERSTATE_START      1
+#define DECODERSTATE_GCT        2
+#define DECODERSTATE_IMAGES     3
+#define DECODERSTATE_ENDING     4
+#define DECODERSTATE_FINISHED   5
+
+#define GIFRET_ALREADYFINISHED  5
+#define GIFRET_NEEDMOREDATA     4
+#define GIFRET_DONE             3
+#define GIFRET_INVALIDSTATE    -1
+#define GIFRET_STREAMDATAERROR -2
+
+#define GIFERROR_NOERROR        0
+#define GIFERROR_INVALIDBYTE    1
 
 typedef struct GifExtHeader_t{
   uint8_t type;
@@ -38,7 +52,6 @@ typedef struct GifImageDescriptor_t{
 
 typedef struct Gif_t Gif;
 struct Gif_t {
-  Gif* asd;
   char version[7];
   //Logical Screen Descriptor
   uint16_t width;
@@ -58,8 +71,17 @@ struct Gif_t {
   uint32_t image_count;
   LinkedList image_descriptor_linked_list;
   LinkedList *trailing_extensions;
+  //Streaming data
+  uint8_t status;
+  uint8_t stream_error;
+  LinkedList *tmp_extensions;
+  uint8_t *tmp_buffer;
+  uint32_t tmp_buffer_offset;
+  uint32_t tmp_buffer_length;
+  uint32_t tmp_buffer_data_length;
 };
 
+void gif_load_initialize(Gif *g);
 int gif_load(Gif *g, uint8_t *p, uint32_t p_length);
 void gif_free(Gif *g);
 

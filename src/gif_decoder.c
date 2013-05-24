@@ -11,6 +11,7 @@
 #define COLORRESOLUTION_MASK 0x70 //0b01110000
 #define CT_MASK 128
 #define CTSIZE_MASK 7
+#define GIFFILEHEADERSIZE 13
 
 #define FLAGS(field, flags) ((field & flags)==flags)
 #define U16LTOU16(p) ((uint16_t)((*(p+1))<<8 | *p))
@@ -19,7 +20,9 @@
 #define COLOR_RESOLUTION(p) ((p[10] & COLORRESOLUTION_MASK)>>4)+1
 #define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
 
-uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_data){
+uint32_t* extract_color_table(uint8_t hastable, uint8_t *data, uint16_t table_size, int *delta_data){
+  *delta_data=0;
+  if (!hastable) return 0;
   uint32_t *color_table = (uint32_t*)malloc(table_size*3*sizeof(uint32_t));
   for(int i=0; i<table_size; i++){
     color_table[i] = U24LTOU24(data);
@@ -29,17 +32,17 @@ uint32_t* extract_color_table(uint8_t *data, uint16_t table_size, int *delta_dat
   return color_table;
 }
 
-int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
-  if(p_length<=14){ printf("File Corrupt. Not enough data for Gif Header.\n"); return -1;}
-  LinkedList *images = &(gif->image_descriptor_linked_list);
-  images->length=0;
+void gif_load_initialize(Gif *gif){
+  memset(gif, 0, sizeof(Gif));
+  gif->status = DECODERSTATE_START;
+  gif->tmp_extensions = (LinkedList *)calloc(1,sizeof(LinkedList));
+  gif->stream_error = GIFERROR_NOERROR;
+}
 
-  LinkedList *extensions = (LinkedList *)malloc(sizeof(LinkedList));
-  memset(extensions, 0, sizeof(LinkedList));
-
+int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
   memcpy(gif->version, p, 6);
   if(strcmp(gif->version, GIF87A_MAGIC)!=0 && strcmp(gif->version, GIF89A_MAGIC)!=0){
-    printf("The file header does not appear to be a gif imagheader: mismatched magic number.\n");
+    printf("The file header is not a valid gif header: mismatched magic number.\n");
     return -2;
   }
 
@@ -55,18 +58,18 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
   gif->ext_count = 0;
   gif->image_count = 0;
 
-  //Get Global Color Table if it exists
-  printf("Size: %d; ctablesize: %d\n\n", p_length, gif->gct_size*3);
-  if(p_length<=13+(gif->gct_size*3)){ 
-    printf("File Corrupt. Not enough data for requested Global Color Table.\n");
-    return -1;
-  }
-  int deltap = 0;
-  gif->color_table = gif->has_gct?extract_color_table(&p[13], gif->gct_size, &deltap):0;
-  p+=13+deltap;
+  *used_bytes = GIFFILEHEADERSIZE;
+  return 0;
+}
+
+int gif_load_images_and_extensions(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes){
+  *usedbytes = 0;
+  uint8_t *startpoint = p;
+
+  LinkedList *images = &(gif->image_descriptor_linked_list);
+  LinkedList *extensions = gif->tmp_extensions;
 
   //Image and Extension check
-  uint8_t *pbackup = p;
   LZWDecoderData ed;
   while(*p==EXT_MARKER||*p==IMG_MARKER){
     if(*p==EXT_MARKER){
@@ -74,20 +77,17 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       p+=1;
       int type=*p;
       LinkedListItem *item = addNewLinkedListItem(extensions);
-      item->data = malloc(sizeof(GifExtHeader));
-      memset(item->data, 0, sizeof(GifExtHeader));
+      item->data = calloc(1, sizeof(GifExtHeader));
       GifExtHeader *exth = (GifExtHeader*)item->data;
       exth->type = type;
 
       p+=1;
       uint8_t *pbeforebody=p;
       while(*p!=0) p+=(*p)+1;
-      exth->data = malloc(sizeof(uint8_t)*((p-pbeforebody)+1));
-      memset(exth->data, 0, sizeof(uint8_t)*((p-pbeforebody)+1));
+      exth->data = calloc(1, sizeof(uint8_t)*((p-pbeforebody)+1));
       memcpy(exth->data, pbeforebody, sizeof(uint8_t)*(p-pbeforebody));
       
       p+=1;
-      //printf("END OF EXT %02x->%02x->%02x\n",*(p-1),*p,*(p+1));
     }
 
     //Detect Images
@@ -112,8 +112,8 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       d->sort = FLAGS(tmp, 32);
       d->lct_size = (d->has_lct) ? (2<<(tmp & CTSIZE_MASK)) : 0;
 
-      int deltap = 0;
-      d->color_table = d->has_lct ? extract_color_table(&p[9], d->lct_size, &deltap) : 0;
+      int deltap;
+      d->color_table = extract_color_table(d->has_lct, &p[9], d->lct_size, &deltap);
       p+=8+deltap+1;
             
       d->LZW = p[0];
@@ -121,15 +121,15 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
       
       uint32_t LZW_dict_init_size = 2<<(d->LZW-1);
       memset(&ed, 0, sizeof(LZWDecoderData));
-      printf("Init Dict Size: %d\n", LZW_dict_init_size);
       lzw_decode_initialize(&ed, LZW_dict_init_size, d->width*d->height);
       uint8_t *beginning_of_image = p; 
       while(*p!=0){
+#ifdef DEBUG
 	printf("\n\e[1;34m****NEXT CALL %d BYTES****\e[0m\n\n", *p);
+#endif
 	int result = lzw_decode(&ed, p+1, *p);
 	if(result<0){printf("Error Decoding image data, Terminating scaling operation\n"); return -1;}
 	p+=(*p)+1;
-	//printf("%02x->%02x->%02x\n",*(p-1),*p,*(p+1));
       }
       //printf("Image Data: ");
       //for(int j=0;j<d->width*d->height; j++)printf("%d ", ed.output_indexes[j]); printf("\n");
@@ -148,14 +148,54 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
     }
   }
   gif->trailing_extensions = (LinkedList *)extensions;
-  extensions=NULL;
+  *usedbytes = p-startpoint;
+}
 
-  if(*p!=GIF_TRAILER){
-    printf("At Missing Trailer: %02x->(%02x)->%02x\n",*(p-1),*p,*(p+1));
-    printf("Extra Data found at end of Gif. Expected 0x3B\n");
-    return -2;
-  }else printf("All Bytes Processed and Accounted for.\n");
-  return 0;
+int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
+  if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
+  uint32_t usedbytes;
+  uint32_t availablebytes = p_length;
+
+  switch(gif->status){
+  case DECODERSTATE_START:
+    if(availablebytes < GIFFILEHEADERSIZE) return GIFRET_NEEDMOREDATA;
+    gif_load_header(gif, p, availablebytes, &usedbytes);
+    p+=usedbytes;
+    availablebytes -= usedbytes;
+    gif->status = DECODERSTATE_GCT;
+
+  case DECODERSTATE_GCT:
+    if(gif->has_gct && availablebytes <= gif->gct_size*3) return GIFRET_NEEDMOREDATA;
+    gif->color_table = extract_color_table(gif->has_gct, p, gif->gct_size, &usedbytes);
+    p+=usedbytes;
+    availablebytes-=usedbytes;
+    gif->status = DECODERSTATE_IMAGES;
+
+  case DECODERSTATE_IMAGES:
+    gif_load_images_and_extensions(gif, p, availablebytes, &usedbytes);
+    p+=usedbytes;
+    availablebytes-=usedbytes;
+    gif->status = DECODERSTATE_ENDING;
+
+  case DECODERSTATE_ENDING:
+    if(availablebytes<=1) return GIFRET_NEEDMOREDATA;
+    if(*p!=GIF_TRAILER){
+      printf("At Missing Trailer: %02x->(%02x)->%02x\n",*(p-1),*p,*(p+1));
+      printf("Extra Data found at end of Gif. Expected 0x3B\n");
+      gif->stream_error = GIFERROR_INVALIDBYTE;
+      return GIFRET_STREAMDATAERROR;
+    }
+    gif->status = DECODERSTATE_FINISHED;
+    return GIFRET_DONE;
+
+  case DECODERSTATE_FINISHED:
+    printf("ALREADY DONE!\n");
+    return GIFRET_ALREADYFINISHED;
+
+  default:
+    printf("Gif structure doesn't appear to be correctly initialized or in an invalid state. Be sure to call gif_load_initialize() with this structure before trying to call gif_load().\n");
+    return GIFRET_INVALIDSTATE;
+  }
 }
 
 void gif_free(Gif *gif){
