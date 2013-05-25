@@ -42,8 +42,8 @@ int main(int argc, char* argv[]){
 
   //if (gif_load(g, filebuffer, data_copied)>=0) gif_printImageData(g);
   gif_load(g, filebuffer, 13);
-  gif_load(g, filebuffer+13, data_copied-13);
-  gif_load(g, filebuffer+data_copied-1, data_copied-14);
+  gif_load(g, filebuffer+13, data_copied-14);
+  gif_load(g, filebuffer+data_copied-1, 1);
   gif_printImageData(g);
 
   free(filebuffer);

@@ -19,6 +19,7 @@
 #define HAS_GCT(p) FLAGS(p[10], CT_MASK)
 #define COLOR_RESOLUTION(p) ((p[10] & COLORRESOLUTION_MASK)>>4)+1
 #define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
+#define MAX(a, b) (a>b?a:b)
 
 uint32_t* extract_color_table(uint8_t hastable, uint8_t *data, uint16_t table_size, int *delta_data){
   *delta_data=0;
@@ -37,6 +38,7 @@ void gif_load_initialize(Gif *gif){
   gif->status = DECODERSTATE_START;
   gif->tmp_extensions = (LinkedList *)calloc(1,sizeof(LinkedList));
   gif->stream_error = GIFERROR_NOERROR;
+  gif->tmp_buffer = NULL;
 }
 
 int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
@@ -155,13 +157,23 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
   if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
   uint32_t usedbytes;
   uint32_t availablebytes = p_length;
+  printf("AVAIL START: %d\n", availablebytes);
 
   switch(gif->status){
   case DECODERSTATE_START:
-    if(availablebytes < GIFFILEHEADERSIZE) return GIFRET_NEEDMOREDATA;
+    if(availablebytes < GIFFILEHEADERSIZE){
+      if(gif->tmp_buffer_length==0){
+	gif->tmp_buffer_length = MAX(128, p_length*2);
+	gif->tmp_buffer = (uint8_t*)malloc(gif->tmp_buffer_length);
+      }else{
+	
+      }
+      return GIFRET_NEEDMOREDATA;
+    }
     gif_load_header(gif, p, availablebytes, &usedbytes);
     p+=usedbytes;
     availablebytes -= usedbytes;
+    printf("AVAIL HEAD: %d\n", availablebytes);
     gif->status = DECODERSTATE_GCT;
 
   case DECODERSTATE_GCT:
@@ -169,23 +181,31 @@ int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
     gif->color_table = extract_color_table(gif->has_gct, p, gif->gct_size, &usedbytes);
     p+=usedbytes;
     availablebytes-=usedbytes;
+    if(gif->has_gct) printf("AVAIL GCT: %d\n", availablebytes);
     gif->status = DECODERSTATE_IMAGES;
 
   case DECODERSTATE_IMAGES:
     gif_load_images_and_extensions(gif, p, availablebytes, &usedbytes);
     p+=usedbytes;
     availablebytes-=usedbytes;
+    printf("AVAIL IMAGES: %d\n", availablebytes);
     gif->status = DECODERSTATE_ENDING;
 
   case DECODERSTATE_ENDING:
-    if(availablebytes<=1) return GIFRET_NEEDMOREDATA;
+    if(availablebytes<1) return GIFRET_NEEDMOREDATA;
     if(*p!=GIF_TRAILER){
-      printf("At Missing Trailer: %02x->(%02x)->%02x\n",*(p-1),*p,*(p+1));
-      printf("Extra Data found at end of Gif. Expected 0x3B\n");
+      printf("ERROR AT GIF TAIL.\n");
       gif->stream_error = GIFERROR_INVALIDBYTE;
       return GIFRET_STREAMDATAERROR;
     }
+    p+=1;
+    availablebytes -= 1;
+    printf("AVAIL FINAL: %d\n", availablebytes);
     gif->status = DECODERSTATE_FINISHED;
+    if(availablebytes>0){
+      printf("Extra bytes found at end of valid gif file (%d bytes).\n", availablebytes);
+      return GIFRET_DONEEXTRADATA;
+    }
     return GIFRET_DONE;
 
   case DECODERSTATE_FINISHED:

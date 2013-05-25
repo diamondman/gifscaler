@@ -16,9 +16,7 @@ void gif_printColorTable(uint16_t size, uint32_t *color_table){
 }
 
 void gif_printImageData(Gif *g){
-  //Gif *g = &g2;
-  //printf("\nThe file format is: %s\n", g.version);
-  printf("Gif Decode Status: %s\n\n", g->status==DECODERSTATE_FINISHED ? "Complete!" : "Incomplete Or Error!");
+  printf("Gif Decode Status: %s\n\n", (g->status==DECODERSTATE_FINISHED ? "Complete!" : "Incomplete Or Error!"));
   printf("Logical Screen Descriptor\n");
   printf("WIDTH:    %d (0x%04x)\n", g->width, g->width);
   printf("HEIGHT:   %d (0x%04x)\n", g->height, g->height);
@@ -29,15 +27,12 @@ void gif_printImageData(Gif *g){
   printf("BGCOLOR:  %d (0x%02x)\n", g->bgcolor, g->bgcolor);
   printf("ARATIO:   %d (0x%02x)\n", g->aspect_ratio, g->aspect_ratio);
 
-  if(g->has_gct)
-    //printf("\nGLOBAL COLOR TABLE FOUND\n");
-    gif_printColorTable(g->gct_size, g->color_table);
+  if(g->has_gct) gif_printColorTable(g->gct_size, g->color_table);
 
-  if(g->ext_count){
+  if(g->ext_count)
     printf("FOUND %d EXTENSION(S)\n\n", g->ext_count);
-  }else{
+  else
     printf("NO EXTENSIONS FOUND\n\n");
-  }
 
   printf("Number of Images: %d\n", g->image_count);
   if(g->image_descriptor_linked_list.length>0){
