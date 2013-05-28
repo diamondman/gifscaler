@@ -23,11 +23,13 @@
 #define GIFRET_NEEDMOREDATA     4
 #define GIFRET_DONE             3
 #define GIFRET_DONEEXTRADATA    2
+#define GIFRET_NOCHANGE         0
 #define GIFRET_INVALIDSTATE    -1
 #define GIFRET_STREAMDATAERROR -2
 
 #define GIFERROR_NOERROR        0
 #define GIFERROR_INVALIDBYTE    1
+#define GIFERROR_UNSUPPORTEDFORMAT 2
 
 typedef struct GifExtHeader_t{
   uint8_t type;
@@ -74,6 +76,7 @@ struct Gif_t {
   LinkedList *trailing_extensions;
   //Streaming data
   uint8_t status;
+  uint8_t stage_status;
   uint8_t stream_error;
   LinkedList *tmp_extensions;
   uint8_t *tmp_buffer;

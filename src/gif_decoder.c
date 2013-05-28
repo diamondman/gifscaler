@@ -19,7 +19,7 @@
 #define HAS_GCT(p) FLAGS(p[10], CT_MASK)
 #define COLOR_RESOLUTION(p) ((p[10] & COLORRESOLUTION_MASK)>>4)+1
 #define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
-#define MAX(a, b) (a>b?a:b)
+#define MAX(a, b) ((a)>(b)?(a):(b))
 
 uint32_t* extract_color_table(uint8_t hastable, uint8_t *data, uint16_t table_size, int *delta_data){
   *delta_data=0;
@@ -41,11 +41,78 @@ void gif_load_initialize(Gif *gif){
   gif->tmp_buffer = NULL;
 }
 
+int gif_load_streamingwrapper(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes, 
+			      int (*funct)(Gif*, uint8_t*, uint32_t, uint32_t*)){
+  printf("\nCalling Stream Wrapper\n");
+  *used_bytes = 0;
+  //if(p_length==0) return GIFRET_NEEDMOREDATA;
+  int funct_res;
+  if(gif->tmp_buffer_data_length==0){
+    printf("No tmp buffer data\n");
+    funct_res = funct(gif, p, p_length, used_bytes);
+    if(funct_res == GIFRET_DONE) return GIFRET_DONE;
+    else{
+      if(*used_bytes < p_length){
+	if((p_length-*used_bytes) >= gif->tmp_buffer_length){
+	  if(gif->tmp_buffer_length != 0) free(gif->tmp_buffer);
+	  gif->tmp_buffer_length = MAX(128, 2*(p_length-*used_bytes));
+	  gif->tmp_buffer = (uint8_t*)malloc(gif->tmp_buffer_length);
+	  printf("Allocating Buffer (%d bytes)\n", gif->tmp_buffer_length);
+	}
+	gif->tmp_buffer_data_length = p_length-*used_bytes;
+	memcpy(gif->tmp_buffer, p+*used_bytes, gif->tmp_buffer_data_length);
+	printf("Copied %d bytes to BLANK tmp_buffer starting at %d.\n", gif->tmp_buffer_data_length, *used_bytes);
+	gif->tmp_buffer_offset = 0;
+      }
+      *used_bytes = p_length;
+      return GIFRET_NEEDMOREDATA;
+    }
+  }else{
+    printf("TMP BUFFER FOUND; BUFF SIZE: %d; DATA SIZE: %d\n", gif->tmp_buffer_length, gif->tmp_buffer_data_length);
+    if(p_length+gif->tmp_buffer_data_length < gif->tmp_buffer_length){
+      printf("New buf data fits in tmp_buffer.\n");
+    }else if(p_length+(gif->tmp_buffer_data_length-gif->tmp_buffer_offset) < gif->tmp_buffer_length){
+      memcpy(gif->tmp_buffer, gif->tmp_buffer+gif->tmp_buffer_offset, 
+	     gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+      printf("Moving back the tmp_buffer to remove offset overhead\n");
+    }else{
+      gif->tmp_buffer_length = (2*p_length)+
+	(gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+      printf("Resizing buffer: %d\n", gif->tmp_buffer_length);
+      uint8_t *replacement_buffer = malloc(gif->tmp_buffer_length);
+      printf("Moving back the tmp_buffer to remove offset overhead\n");
+      memcpy(replacement_buffer, gif->tmp_buffer+gif->tmp_buffer_offset, 
+	     gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+      free(gif->tmp_buffer);
+      gif->tmp_buffer = replacement_buffer;
+      gif->tmp_buffer_data_length -= gif->tmp_buffer_offset;
+      gif->tmp_buffer_offset = 0;
+    }
+    memcpy(gif->tmp_buffer+gif->tmp_buffer_data_length, p, p_length);
+    printf("Copied %d bytes to EXISTING tmp_buffer starting at %d.\n", p_length, gif->tmp_buffer_data_length);
+    uint32_t old_tmp_buffer_data_length = gif->tmp_buffer_data_length;
+    gif->tmp_buffer_data_length = gif->tmp_buffer_data_length + p_length;
+    printf("After copy, tmp buffer length: %d\n", gif->tmp_buffer_data_length);
+    funct_res = funct(gif, gif->tmp_buffer, gif->tmp_buffer_data_length, used_bytes);
+    gif->tmp_buffer_offset += *used_bytes;
+    if(gif->tmp_buffer_offset == gif->tmp_buffer_data_length){
+      gif->tmp_buffer_offset = 0;
+      gif->tmp_buffer_data_length = 0;
+    }
+    *used_bytes = p_length;
+    return funct_res;
+  }
+}
+
 int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
+  printf("CALLING LOAD HEADER\n");
+  *used_bytes = 0;
+  if(p_length < GIFFILEHEADERSIZE) return GIFRET_NEEDMOREDATA;
   memcpy(gif->version, p, 6);
   if(strcmp(gif->version, GIF87A_MAGIC)!=0 && strcmp(gif->version, GIF89A_MAGIC)!=0){
     printf("The file header is not a valid gif header: mismatched magic number.\n");
-    return -2;
+    gif->stream_error = GIFERROR_UNSUPPORTEDFORMAT;
+    return GIFRET_STREAMDATAERROR;
   }
 
   //Extract Main Gif Header
@@ -61,10 +128,27 @@ int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_byte
   gif->image_count = 0;
 
   *used_bytes = GIFFILEHEADERSIZE;
-  return 0;
+  printf("HEAD USED BYTES  %d\n", *used_bytes);
+  return GIFRET_DONE;
+}
+
+int gif_load_gct(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
+  printf("CALLING LOAD GCT; p_length: %d\n",p_length);
+  *used_bytes = 0;
+  if(!gif->has_gct) return GIFRET_DONE;
+  if(p_length < gif->gct_size*3){
+    printf("NEED MORE DATA! Only have %d, need %d\n", p_length, gif->gct_size*3);
+    return GIFRET_NEEDMOREDATA;
+  }
+  gif->color_table = extract_color_table(1, p, gif->gct_size, used_bytes);
+  printf("GCT USED BYTES   %d\n", *used_bytes);
+  *used_bytes = gif->gct_size*3;
+  printf("+GCT USED BYTES  %d\n", *used_bytes);
+  return GIFRET_DONE;
 }
 
 int gif_load_images_and_extensions(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes){
+  printf("CALLING LOAD IMAGES\n");
   *usedbytes = 0;
   uint8_t *startpoint = p;
 
@@ -151,57 +235,73 @@ int gif_load_images_and_extensions(Gif *gif, uint8_t *p, uint32_t p_length, uint
   }
   gif->trailing_extensions = (LinkedList *)extensions;
   *usedbytes = p-startpoint;
+  return GIFRET_DONE;
+}
+
+int gif_load_tail(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes){
+  printf("CALLING LOAD TAIL\n");
+  *usedbytes = 0;
+  if(p_length<1) return GIFRET_NEEDMOREDATA;
+  if(*p!=GIF_TRAILER){
+    gif->stream_error = GIFERROR_INVALIDBYTE;
+    return GIFRET_STREAMDATAERROR;
+  }
+  *usedbytes = 1;
+  return GIFRET_DONE;
 }
 
 int gif_load(Gif *gif, uint8_t *p, uint32_t p_length){
+  printf("\n**********************************\n");
+  printf("LOAD CALL p_length: %d\n", p_length);
+  printf("**********************************\n");
+  if(p_length < 0){
+    printf("WTF - value!\n");
+    return GIFRET_NOCHANGE;
+  }
   if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
+  if(p_length == 0) return GIFRET_NOCHANGE;
   uint32_t usedbytes;
   uint32_t availablebytes = p_length;
-  printf("AVAIL START: %d\n", availablebytes);
+  int stage_return;
 
   switch(gif->status){
   case DECODERSTATE_START:
-    if(availablebytes < GIFFILEHEADERSIZE){
-      if(gif->tmp_buffer_length==0){
-	gif->tmp_buffer_length = MAX(128, p_length*2);
-	gif->tmp_buffer = (uint8_t*)malloc(gif->tmp_buffer_length);
-      }else{
-	
-      }
-      return GIFRET_NEEDMOREDATA;
-    }
-    gif_load_header(gif, p, availablebytes, &usedbytes);
+    stage_return = gif_load_streamingwrapper(gif, p, availablebytes, &usedbytes, gif_load_header);
+    printf("REMAINING BYTES IN TMP BUF HEAD %d\n", gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+    if(stage_return == GIFRET_NEEDMOREDATA) return GIFRET_NEEDMOREDATA;
+    if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
     p+=usedbytes;
     availablebytes -= usedbytes;
-    printf("AVAIL HEAD: %d\n", availablebytes);
     gif->status = DECODERSTATE_GCT;
 
   case DECODERSTATE_GCT:
-    if(gif->has_gct && availablebytes <= gif->gct_size*3) return GIFRET_NEEDMOREDATA;
-    gif->color_table = extract_color_table(gif->has_gct, p, gif->gct_size, &usedbytes);
-    p+=usedbytes;
-    availablebytes-=usedbytes;
-    if(gif->has_gct) printf("AVAIL GCT: %d\n", availablebytes);
+    stage_return = gif_load_streamingwrapper(gif, p, availablebytes, &usedbytes, gif_load_gct);
+    printf("This better fucking show up\n");
+    printf("REMAINING BYTES IN TMP BUF GCT  %d\n", gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+    if(stage_return == GIFRET_NEEDMOREDATA) return GIFRET_NEEDMOREDATA;
+    if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
+    p += usedbytes;
+    availablebytes -= usedbytes;
     gif->status = DECODERSTATE_IMAGES;
 
   case DECODERSTATE_IMAGES:
-    gif_load_images_and_extensions(gif, p, availablebytes, &usedbytes);
-    p+=usedbytes;
-    availablebytes-=usedbytes;
-    printf("AVAIL IMAGES: %d\n", availablebytes);
+    stage_return = gif_load_streamingwrapper(gif, p, availablebytes, &usedbytes, gif_load_images_and_extensions);
+    printf("REMAINING BYTES IN TMP BUF IMG  %d\n", gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+    if(stage_return == GIFRET_NEEDMOREDATA) return GIFRET_NEEDMOREDATA;
+    if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
+    p += usedbytes;
+    availablebytes -= usedbytes;
     gif->status = DECODERSTATE_ENDING;
 
   case DECODERSTATE_ENDING:
-    if(availablebytes<1) return GIFRET_NEEDMOREDATA;
-    if(*p!=GIF_TRAILER){
-      printf("ERROR AT GIF TAIL.\n");
-      gif->stream_error = GIFERROR_INVALIDBYTE;
-      return GIFRET_STREAMDATAERROR;
-    }
-    p+=1;
-    availablebytes -= 1;
-    printf("AVAIL FINAL: %d\n", availablebytes);
+    stage_return = gif_load_streamingwrapper(gif, p, availablebytes, &usedbytes, gif_load_tail);
+    printf("REMAINING BYTES IN TMP BUF END  %d\n", gif->tmp_buffer_data_length-gif->tmp_buffer_offset);
+    if(stage_return == GIFRET_NEEDMOREDATA) return GIFRET_NEEDMOREDATA;
+    if(gif->stream_error!=GIFERROR_NOERROR) return GIFRET_STREAMDATAERROR;
+    p+=usedbytes;
+    availablebytes -= usedbytes;
     gif->status = DECODERSTATE_FINISHED;
+
     if(availablebytes>0){
       printf("Extra bytes found at end of valid gif file (%d bytes).\n", availablebytes);
       return GIFRET_DONEEXTRADATA;
