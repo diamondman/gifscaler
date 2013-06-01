@@ -40,15 +40,11 @@ int main(int argc, char* argv[]){
   Gif *gif = (Gif*)malloc(sizeof(Gif));
   gif_load_initialize(gif);
 
-  //if (gif_load(g, filebuffer, data_copied)>=0) gif_printImageData(g);
-  gif_load(gif, filebuffer, 5);
+  gif_load(gif, filebuffer, data_copied);
+  /*gif_load(gif, filebuffer, 5);
   gif_load(gif, filebuffer+5, 15);
-  //gif_load(gif, filebuffer+20, 180);
-  gif_load(gif, filebuffer+20, data_copied-20);
-  //gif_load(gif, filebuffer+34, data_copied-14);
-  //gif_load(gif, filebuffer+(data_copied-1), 1);
+  gif_load(gif, filebuffer+20, data_copied-20);*/
   gif_printImageData(gif);
-
   free(filebuffer);
   gif_free(gif);
   free(gif);

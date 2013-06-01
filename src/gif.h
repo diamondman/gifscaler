@@ -19,6 +19,9 @@
 #define DECODERSTATE_ENDING     4
 #define DECODERSTATE_FINISHED   5
 
+#define DATADECODERSTATE_START  0
+#define DATADECODERSTATE_  1
+
 #define GIFRET_ALREADYFINISHED  5
 #define GIFRET_NEEDMOREDATA     4
 #define GIFRET_DONE             3
@@ -83,6 +86,7 @@ struct Gif_t {
   uint32_t tmp_buffer_offset;
   uint32_t tmp_buffer_length;
   uint32_t tmp_buffer_data_length;
+  void *decoder_scratch;
 };
 
 void gif_load_initialize(Gif *g);
