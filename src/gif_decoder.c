@@ -6,24 +6,24 @@
 #include "linkedlist.h"
 #include "lzw.h"
 
-#define GIF87A_MAGIC "GIF87a"
-#define GIF89A_MAGIC "GIF89a"
+#define GIF87A_MAGIC         "GIF87a"
+#define GIF89A_MAGIC         "GIF89a"
 #define COLORRESOLUTION_MASK 0x70 //0b01110000
-#define CT_MASK 128
-#define CTSIZE_MASK 7
-#define GIFFILEHEADERSIZE 13
+#define CT_MASK              128
+#define CTSIZE_MASK          7
+#define GIFFILEHEADERSIZE    13
 
 #define FLAGS(field, flags) ((field & flags)==flags)
-#define U16LTOU16(p) ((uint16_t)((*(p+1))<<8 | *p))
-#define U24LTOU24(p) ((*p<<16) | (*(p+1)<<8) | *(p+2))
-#define HAS_GCT(p) FLAGS(p[10], CT_MASK)
+#define U16LTOU16(p)        ((uint16_t)((*(p+1))<<8 | *p))
+#define U24LTOU24(p)        ((*p<<16) | (*(p+1)<<8) | *(p+2))
+#define HAS_GCT(p)          FLAGS(p[10], CT_MASK)
 #define COLOR_RESOLUTION(p) ((p[10] & COLORRESOLUTION_MASK)>>4)+1
-#define GCT_SIZE(p) (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
-#define MAX(a, b) ((a)>(b)?(a):(b))
+#define GCT_SIZE(p)         (HAS_GCT(p) ? 2<<(p[10] & CTSIZE_MASK) : 0)
+#define MAX(a, b)           ((a)>(b)?(a):(b))
 
-uint32_t* extract_color_table(uint8_t hastable, uint8_t *data, uint16_t table_size, int *delta_data){
+uint32_t* extract_color_table (uint8_t hastable, uint8_t *data, uint16_t table_size, int *delta_data){
   *delta_data=0;
-  if (!hastable) return 0;
+  if (!hastable){ return 0;}
   uint32_t *color_table = (uint32_t*)malloc(table_size*3*sizeof(uint32_t));
   for(int i=0; i<table_size; i++){
     color_table[i] = U24LTOU24(data);
@@ -33,7 +33,7 @@ uint32_t* extract_color_table(uint8_t hastable, uint8_t *data, uint16_t table_si
   return color_table;
 }
 
-void gif_load_initialize(Gif *gif){
+void gif_load_initialize (Gif *gif){
   memset(gif, 0, sizeof(Gif));
   gif->status = DECODERSTATE_START;
   gif->tmp_extensions = (LinkedList *)calloc(1,sizeof(LinkedList));
@@ -43,7 +43,7 @@ void gif_load_initialize(Gif *gif){
   gif->decoder_scratch = NULL;
 }
 
-int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
+int gif_load_header (Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
   printf("CALLING LOAD HEADER\n");
   *used_bytes = 0;
   if (p_length < GIFFILEHEADERSIZE) return GIFRET_NEEDMOREDATA;
@@ -71,7 +71,7 @@ int gif_load_header(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_byte
   return GIFRET_DONE;
 }
 
-int gif_load_gct(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
+int gif_load_gct (Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
   printf("CALLING LOAD GCT; p_length: %d\n",p_length);
   *used_bytes = 0;
   if (!gif->has_gct) return GIFRET_DONE;
@@ -83,7 +83,7 @@ int gif_load_gct(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *used_bytes){
   return GIFRET_DONE;
 }
 
-int gif_load_get_ext(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes){
+int gif_load_get_ext (Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes){
   *usedbytes = 0;
   if (p[0] == EXT_MARKER){
     printf("Found an EXT\n");
@@ -108,23 +108,19 @@ int gif_load_get_ext(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbyte
   return GIFRET_NOCHANGE;
 }
 
-int gif_load_get_image(Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes, LZWDecoderData *ed){
+int gif_load_get_image (Gif *gif, uint8_t *p, uint32_t p_length, uint32_t *usedbytes, LZWDecoderData *ed){
   *usedbytes = 0;
   if (p[0] == IMG_MARKER)
     printf("Found an IMG\n");{
     uint8_t *pbackup = p;
-    
-    LinkedList *images = &(gif->image_descriptor_linked_list);
-    LinkedList *extensions = gif->tmp_extensions;
 
-    LinkedListItem *item = addNewLinkedListItem(images);
+    LinkedListItem *item = addNewLinkedListItem(&(gif->image_descriptor_linked_list));
     item->data = malloc(sizeof(GifImageDescriptor));
     memset(item->data, 0, sizeof(GifImageDescriptor));
     GifImageDescriptor *d = (GifImageDescriptor*)item->data;
-    d->extensions = (LinkedList *)extensions;
-    extensions = (LinkedList *)malloc(sizeof(LinkedList));
-    memset(extensions, 0, sizeof(LinkedList));
-    
+    d->extensions = gif->tmp_extensions;
+    gif->tmp_extensions = (LinkedList *) calloc(1, sizeof(LinkedList));
+
     d->left   = U16LTOU16(&p[1]);
     d->top    = U16LTOU16(&p[3]);
     d->width  = U16LTOU16(&p[5]);
@@ -181,7 +177,6 @@ int gif_load_images_and_extensions(Gif *gif, uint8_t *p, uint32_t p_length, uint
   printf("CALLING LOAD IMAGES\n");
   uint8_t *startpoint = p;
   LinkedList *images = &(gif->image_descriptor_linked_list);
-  LinkedList *extensions = gif->tmp_extensions;
   *usedbytes = 0;
 
   //Image and Extension check
@@ -195,7 +190,7 @@ int gif_load_images_and_extensions(Gif *gif, uint8_t *p, uint32_t p_length, uint
     gif_load_get_image(gif, p, p_length, &sub_usedbytes, &ed);
     p += sub_usedbytes;
   }
-  gif->trailing_extensions = (LinkedList *)extensions;
+  gif->trailing_extensions = gif->tmp_extensions;
   *usedbytes = p-startpoint;
   printf("FINISHING EXT AND IMAGES\n");
   return GIFRET_DONE;
